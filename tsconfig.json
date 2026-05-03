@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "outDir": "./dist/",
+    "rootDir": "./src",
+    "ignoreDeprecations": "6.0",
     "sourceMap": true,
     "module": "commonjs",
     "moduleResolution": "node",
@@ -17,7 +19,8 @@
     "resolveJsonModule": true,
     "downlevelIteration": true,
     "skipLibCheck": true,
-    "removeComments": true
+    "removeComments": true,
+    "types": ["node", "mocha"]
   },
   "exclude": ["node_modules", "dist"],
   "include": ["src/**/*"],
