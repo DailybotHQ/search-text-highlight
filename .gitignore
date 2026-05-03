@@ -70,3 +70,9 @@ emoji-lib-output.json
 
 tmp/*
 !tmp/.gitkeep
+
+# OS / editor noise
+.DS_Store
+
+# TypeScript incremental build (local only)
+*.tsbuildinfo
