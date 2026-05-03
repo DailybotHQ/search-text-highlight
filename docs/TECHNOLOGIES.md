@@ -23,13 +23,13 @@ A complete inventory of every tool, plugin, and library shipped with this reposi
 
 ## TypeScript tooling
 
-| Tool           | Version | Role                                                           |
-| -------------- | ------- | -------------------------------------------------------------- |
-| `typescript`   | 6.0.3   | Compiler, declaration emission (`tsc --build` → `dist/*.d.ts`) |
-| `ts-node`      | 10.9.2  | Runs TypeScript directly for `nodemon` and Mocha               |
-| `@types/node`  | 24.12.2 | Node API typings (aligned with Node 24)                        |
-| `@types/chai`  | 4.3.20  | Assertion library typings                                      |
-| `@types/mocha` | 10.0.10 | Test runner typings                                            |
+| Tool           | Version | Role                                                                                                                           |
+| -------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `typescript`   | 6.0.3   | Compiler, declaration emission (`tsc --build` → `dist/*.d.ts`)                                                                 |
+| `ts-node`      | 10.9.2  | Runs TypeScript directly for `nodemon` and Mocha                                                                               |
+| `@types/node`  | 25.6.0  | Node API typings — **newer than `engines`** on purpose (`ncu`); definitions stay compatible with our Node 24 surface in `src/` |
+| `@types/chai`  | 4.3.20  | Assertion library typings                                                                                                      |
+| `@types/mocha` | 10.0.10 | Test runner typings                                                                                                            |
 
 ## Lint / format
 
