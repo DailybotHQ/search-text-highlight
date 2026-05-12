@@ -1,6 +1,6 @@
 {
   "name": "search-text-highlight",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "This tool allow find a string or substring from a text and highlight it with html wrapper with unicode support.",
   "keywords": [
     "search",
