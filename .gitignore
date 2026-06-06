@@ -71,6 +71,15 @@ emoji-lib-output.json
 tmp/*
 !tmp/.gitkeep
 
+# Deep Work Plan scratch — track only .gitkeep markers
+.dwp/*
+!.dwp/plans
+!.dwp/drafts
+.dwp/plans/*
+!.dwp/plans/.gitkeep
+.dwp/drafts/*
+!.dwp/drafts/.gitkeep
+
 # OS / editor noise
 .DS_Store
 
