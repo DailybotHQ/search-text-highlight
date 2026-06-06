@@ -10,6 +10,8 @@
 
 | Category        | Guide                                                                                           | Purpose                                                                |
 | --------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Product Spec    | [Product Spec](docs/PRODUCT_SPEC.md)                                                            | Non-technical "why" — audience, contract, non-goals, success criteria  |
+| Docs Index      | [docs/README.md](docs/README.md)                                                                | Documentation index — flat list of every guide in `docs/`              |
 | Architecture    | [Architecture](docs/ARCHITECTURE.md)                                                            | Module layout, public API surface, TypeScript build pipeline           |
 | Technologies    | [Technologies](docs/TECHNOLOGIES.md)                                                            | Stack overview with versions and roles                                 |
 | Standards       | [Standards](docs/STANDARDS.md)                                                                  | TypeScript conventions, naming, ESLint/Prettier rules                  |
@@ -56,6 +58,7 @@ The codebase is intentionally small (one public method, two helper modules) so i
 src/
 ├── index.ts              # Public entry — exports `searchTextHL.highlight(...)`
 └── lib/
+    ├── README.md         # Per-module doc covering `type.ts` and `utils.ts`
     ├── type.ts           # `OptionsType`, `SearchTextHLType`, `UtilsType` interfaces
     └── utils.ts          # Argument validation + default option resolution
 
@@ -63,9 +66,10 @@ test/
 └── main.test.ts          # Mocha + Chai suite for the public API
 
 dist/                     # Webpack production output (gitignored, published to npm)
-docs/                     # Documentation referenced from this file
-.agents/                  # Skills, commands, and subagents for any AI host
+docs/                     # Documentation referenced from this file (includes PRODUCT_SPEC.md, README.md index)
+.agents/                  # Skills, commands, subagents, settings, and the docs/ catalog for any AI host
 .claude/ → .agents/       # Symlink so Claude Code resolves the same files
+.dwp/                     # Deep Work Plan scratch — plans/ and drafts/ (gitignored except .gitkeep)
 .github/
 ├── workflows/            # CI: code_check, release_and_publish, package upgrade automation
 └── scripts/              # Helper scripts called from workflows
@@ -369,6 +373,28 @@ This repository ships with a `.agents/` directory (with `.claude/` symlinked to 
 - `/release` — Run the project's release script, verify the npm publish prerequisites
 - `/devcontainer-up` — Spin up the local Docker dev environment and verify the welcome banner
 - `/fork-rebrand` — Walk a fresh fork through name, description, npm scope, repo URL, license
+
+**Deep Work Plan delegators** (forward to the installed [`deepworkplan-skill`](https://github.com/DailybotHQ/deepworkplan-skill) at `~/.claude/skills/deepworkplan-*`):
+
+- `/dwp-create <goal>` — Decompose a goal into a numbered Deep Work Plan with validation gates; plan lands in `.dwp/plans/`
+- `/dwp-execute` — Run the active plan task-by-task, validate each gate, update progress
+- `/dwp-refine` — Add, remove, or reorder tasks while preserving completed work
+- `/dwp-resume` — Reconstruct state and continue an interrupted plan
+- `/dwp-status` — Report progress without making changes (read-only)
+- `/dwp-verify` — Objective pass/fail conformance report against the DWP spec
+- `/dwp-onboard` — Re-run the AI-first onboarding non-destructively
+- `/skill-create <name>` — Author a new skill in `.agents/skills/`
+- `/agent-create <name>` — Author a new agent in `.agents/agents/`
+
+If the DWP skill pack is not installed yet, run:
+
+```bash
+git clone https://github.com/DailybotHQ/deepworkplan-skill.git ~/.local/share/deepworkplan-skill
+~/.local/share/deepworkplan-skill/setup.sh --host claude
+# Add verify + author sub-skills (not linked by setup.sh in current upstream):
+ln -snf ~/.local/share/deepworkplan-skill/skills/deepworkplan/verify ~/.claude/skills/deepworkplan-verify
+ln -snf ~/.local/share/deepworkplan-skill/skills/deepworkplan/author ~/.claude/skills/deepworkplan-author
+```
 
 **Subagents:**
 

@@ -11,6 +11,10 @@ This directory contains **skills** (slash-command procedures), **commands** (low
 ```
 .agents/
 ├── README.md                # This file — full catalog
+├── settings.json            # Claude Code harness permissions
+├── docs/                    # Full catalog + commands reference
+│   ├── skills_agents_catalog.md
+│   └── COMMANDS_REFERENCE.md
 ├── skills/                  # One Markdown file per slash command (procedural)
 │   ├── add-option.md
 │   ├── add-feature.md
@@ -29,11 +33,20 @@ This directory contains **skills** (slash-command procedures), **commands** (low
 │   ├── release-engineer.md
 │   ├── security-reviewer.md
 │   └── doc-writer.md
-└── commands/                # One Markdown file per shell shortcut / runbook
+└── commands/                # Shell runbooks + DWP delegators
     ├── verify.md            # The full pre-push check chain
     ├── pack-check.md        # `npm pack --dry-run` walkthrough
     ├── ci-reproduce.md      # Reproduce a failing CI step locally
-    └── reset-env.md         # Clear node_modules + caches and reinstall
+    ├── reset-env.md         # Clear node_modules + caches and reinstall
+    ├── dwp-create.md        # Delegate to deepworkplan-create
+    ├── dwp-execute.md       # Delegate to deepworkplan-execute
+    ├── dwp-refine.md        # Delegate to deepworkplan-refine
+    ├── dwp-resume.md        # Delegate to deepworkplan-resume
+    ├── dwp-status.md        # Delegate to deepworkplan-status
+    ├── dwp-verify.md        # Delegate to deepworkplan-verify
+    ├── dwp-onboard.md       # Delegate to deepworkplan-onboard
+    ├── skill-create.md      # Delegate to deepworkplan-author (skill scope)
+    └── agent-create.md      # Delegate to deepworkplan-author (agent scope)
 ```
 
 ## Skills (slash commands)
@@ -94,6 +107,24 @@ Low-level, repeatable shell sequences. Smaller than skills — they don't ask qu
 | `reset-env`    | Clear `node_modules` + caches and reinstall  | [commands/reset-env.md](commands/reset-env.md)       |
 
 These can be invoked the same way as skills (`/verify`, `#verify`, etc.). They're separated from skills because they're shorter and don't need interactive steps.
+
+## Deep Work Plan delegators
+
+Thin delegators that hand control to the installed [DWP skill pack](https://github.com/DailybotHQ/deepworkplan-skill) (`~/.claude/skills/deepworkplan-*`). They exist so the slash command works inside this repo without the user having to remember the underlying skill name.
+
+| Command         | Delegates to           | Purpose                                                       | File                                                 |
+| --------------- | ---------------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
+| `/dwp-create`   | `deepworkplan-create`  | Decompose a goal into a numbered plan with validation gates   | [commands/dwp-create.md](commands/dwp-create.md)     |
+| `/dwp-execute`  | `deepworkplan-execute` | Execute the active plan task-by-task, validate each gate      | [commands/dwp-execute.md](commands/dwp-execute.md)   |
+| `/dwp-refine`   | `deepworkplan-refine`  | Add, remove, or reorder tasks while preserving completed work | [commands/dwp-refine.md](commands/dwp-refine.md)     |
+| `/dwp-resume`   | `deepworkplan-resume`  | Reconstruct state and continue an interrupted plan            | [commands/dwp-resume.md](commands/dwp-resume.md)     |
+| `/dwp-status`   | `deepworkplan-status`  | Report progress without executing                             | [commands/dwp-status.md](commands/dwp-status.md)     |
+| `/dwp-verify`   | `deepworkplan-verify`  | Objective pass/fail conformance report                        | [commands/dwp-verify.md](commands/dwp-verify.md)     |
+| `/dwp-onboard`  | `deepworkplan-onboard` | Re-run the AI-first onboarding non-destructively              | [commands/dwp-onboard.md](commands/dwp-onboard.md)   |
+| `/skill-create` | `deepworkplan-author`  | Author a new skill in `.agents/skills/`                       | [commands/skill-create.md](commands/skill-create.md) |
+| `/agent-create` | `deepworkplan-author`  | Author a new agent in `.agents/agents/`                       | [commands/agent-create.md](commands/agent-create.md) |
+
+Plans land in `.dwp/plans/`, drafts in `.dwp/drafts/`. Both are gitignored except for `.gitkeep`. See [`docs/skills_agents_catalog.md`](docs/skills_agents_catalog.md) for the full authoritative catalog.
 
 ## Adding a new skill, subagent, or command
 
