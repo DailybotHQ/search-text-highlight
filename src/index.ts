@@ -24,4 +24,15 @@ const searchTextHL: SearchTextHLType = {
 }
 
 export default searchTextHL
-module.exports = searchTextHL
+
+// CommonJS interop. In the published CJS bundle (Vite library build) this makes
+// `require('search-text-highlight')` return the object itself, so
+// `require(...).highlight(...)` works for CJS consumers. Wrapped in try/catch because
+// under a pure-ESM transform (e.g. Vitest importing this .ts directly) `module.exports`
+// is a read-only namespace — there the ESM `export default` above already covers
+// consumers, so the throw is safely ignored.
+try {
+  module.exports = searchTextHL
+} catch {
+  /* ESM context (no writable module.exports) — the ESM default export applies. */
+}

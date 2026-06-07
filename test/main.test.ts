@@ -1,4 +1,4 @@
-import { expect } from 'chai'
+import { describe, expect, it } from 'vitest'
 import searchTextHL from '../src/index'
 
 describe('Test search text highlight', () => {
@@ -6,7 +6,7 @@ describe('Test search text highlight', () => {
     const text = 'This is a simple but an amazing tool for text highlight 😎.'
     const query = 'amazing'
     const result = searchTextHL.highlight(text, query)
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is a simple but an <span class="text-highlight">amazing</span> tool for text highlight 😎.'
     )
   })
@@ -15,7 +15,7 @@ describe('Test search text highlight', () => {
     const text = 'This is a simple but an amazing tool for text highlight 😎.'
     const query = 'a'
     const result = searchTextHL.highlight(text, query)
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is <span class="text-highlight">a</span> simple but <span class="text-highlight">a</span>n <span class="text-highlight">a</span>m<span class="text-highlight">a</span>zing tool for text highlight 😎.'
     )
   })
@@ -24,7 +24,7 @@ describe('Test search text highlight', () => {
     const text = 'This is a simple but an amazing tool for text highlight 😎.'
     const query = '😎'
     const result = searchTextHL.highlight(text, query)
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is a simple but an amazing tool for text highlight <span class="text-highlight">😎</span>.'
     )
   })
@@ -33,7 +33,7 @@ describe('Test search text highlight', () => {
     const text = 'This is a simple but an amazing tool for text highlight 😎.'
     const query = ''
     const result = searchTextHL.highlight(text, query)
-    expect(result).to.be.equal(text)
+    expect(result).toBe(text)
   })
 
   it('should be able to replace the default HTML tag', () => {
@@ -41,7 +41,7 @@ describe('Test search text highlight', () => {
     const query = 'amazing'
     const options = { htmlTag: 'label' }
     const result = searchTextHL.highlight(text, query, options)
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is a simple but an <label class="text-highlight">amazing</label> tool for text highlight 😎.'
     )
   })
@@ -51,7 +51,7 @@ describe('Test search text highlight', () => {
     const query = 'amazing'
     const options = { htmlTag: 'label', hlClass: 'custom-class' }
     const result = searchTextHL.highlight(text, query, options)
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is a simple but an <label class="custom-class">amazing</label> tool for text highlight 😎.'
     )
   })
@@ -61,7 +61,7 @@ describe('Test search text highlight', () => {
     const query = 'a'
     const options = { matchAll: false }
     const result = searchTextHL.highlight(text, query, options)
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is <span class="text-highlight">a</span> simple but an amazing tool for text highlight 😎.'
     )
   })
@@ -71,75 +71,75 @@ describe('Test search text highlight', () => {
     const query = 'Amazing'
     const options = { caseSensitive: true }
     const result = searchTextHL.highlight(text, query, options)
-    expect(result).to.be.equal('This is a simple but an amazing tool for text highlight 😎.')
+    expect(result).toBe('This is a simple but an amazing tool for text highlight 😎.')
   })
 
   it('should throw error with not the right type parameter', () => {
-    let text: any = 42 // eslint-disable-line
+    let text: any = 42
     expect(() => {
       searchTextHL.highlight(text, '')
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     text = true
     expect(() => {
       searchTextHL.highlight(text, '')
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     text = 'This is a simple but an amazing tool for text highlight 😎.'
-    let query: any = 5 // eslint-disable-line
+    let query: any = 5
     expect(() => {
       searchTextHL.highlight(text, query)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     query = true
     expect(() => {
       searchTextHL.highlight(text, query)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     query = 'amazing'
-    let options: any = true // eslint-disable-line
+    let options: any = true
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { htmlTag: 563 }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { htmlTag: false }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { hlClass: 50.0 }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { hlClass: true }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { matchAll: 'true' }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { matchAll: 1 }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { caseSensitive: 42 }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
 
     options = { caseSensitive: 'false' }
     expect(() => {
       searchTextHL.highlight(text, query, options)
-    }).to.throw(Error)
+    }).toThrow(Error)
   })
 })

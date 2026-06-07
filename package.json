@@ -19,8 +19,8 @@
     "biome:check": "biome check",
     "biome:fix": "biome check --write",
     "biome:fix:unsafe": "biome check --write --unsafe",
-    "test": "mocha --require ts-node/register test/**.ts --timeout 25000 --colors",
-    "test:watch": "mocha -w --watch-extensions ts --require ts-node/register --watch-files src,test test/**.ts --timeout 25000 --colors",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "release": "npm version patch -m \"[🤖 DailyBot] New release to v%s launched 🚀\"",
     "start": "node dist/index.js",
     "dev": "nodemon --exec tsx src/index.ts",
@@ -44,18 +44,14 @@
   "dependencies": {},
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
-    "@types/chai": "4.3.20",
-    "@types/mocha": "10.0.10",
     "@types/node": "25.7.0",
-    "chai": "4.5.0",
     "esbuild": "0.28.0",
-    "mocha": "11.7.5",
     "nodemon": "3.1.14",
     "npm-check-updates": "22.2.0",
-    "ts-node": "10.9.2",
     "tsx": "4.22.4",
     "typescript": "6.0.3",
-    "vite": "8.0.16"
+    "vite": "8.0.16",
+    "vitest": "4.1.8"
   },
   "engines": {
     "node": "24.15.0"
