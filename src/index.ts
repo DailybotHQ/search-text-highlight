@@ -1,4 +1,4 @@
-import { OptionsType, SearchTextHLType } from './lib/type'
+import type { OptionsType, SearchTextHLType } from './lib/type'
 import Utils from './lib/utils'
 
 /**
