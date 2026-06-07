@@ -1,3 +1,5 @@
+# Note: package.json "files": ["dist"] is the authoritative publish allowlist.
+# This denylist is kept as defense-in-depth so a stray config never ships.
 .vscode_example
 .vscode
 .devcontainer
@@ -10,14 +12,17 @@ test
 .gitignore
 .travis.yml
 package-lock.json
+pnpm-lock.yaml
 tsconfig.json
-webpack.config.js
+tsconfig.build.json
+vite.config.ts
+vitest.config.ts
+biome.json
 docker
 .github
-.eslintignore
-.eslintrc
 get_github_release_log.sh
 git_logs_output.txt
 git_logs.txt
 .editorconfig
-.prettierrc
+tmp
+.dwp
