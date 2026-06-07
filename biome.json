@@ -30,6 +30,8 @@
       "!**/tmp",
       "!**/coverage",
       "!**/.dwp",
+      "!**/docker",
+      "!**/.github",
       "!**/.agents/skills/deepworkplan"
     ]
   },
