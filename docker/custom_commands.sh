@@ -14,14 +14,9 @@ function print.error {
 
 # Read-only lint + format (matches CI validate step)
 function check() {
-	print.success "Running ESLint (read-only)..."
-	npm run eslint:check || {
-		print.error "⚠️ ESLint check failed"
-		return 1
-	}
-	print.success "Running Prettier (read-only)..."
-	npm run prettier:check || {
-		print.error "⚠️ Prettier check failed"
+	print.success "Running Biome check (lint + format)..."
+	corepack pnpm run biome:check || {
+		print.error "⚠️ Biome check failed"
 		return 1
 	}
 	print.success "✅ check passed"
@@ -29,74 +24,67 @@ function check() {
 
 # Auto-fix lint + format
 function fix() {
-	print.success "Running ESLint with --fix..."
-	npm run eslint:fix || {
-		print.error "⚠️ ESLint fix failed"
-		return 1
-	}
-	print.success "Running Prettier with --write..."
-	npm run prettier:fix || {
-		print.error "⚠️ Prettier fix failed"
+	print.success "Running Biome check --write (lint + format, apply fixes)..."
+	corepack pnpm run biome:fix || {
+		print.error "⚠️ Biome fix failed"
 		return 1
 	}
 	print.success "✅ fix completed"
 }
 
 function typecheck() {
-	print.success "Running TypeScript compiler (tsc --build)..."
-	npm run build:tsc || {
-		print.error "⚠️ TypeScript build failed"
+	print.success "Running TypeScript type-check (tsc --noEmit)..."
+	corepack pnpm run build:tsc || {
+		print.error "⚠️ TypeScript type-check failed"
 		return 1
 	}
 	print.success "✅ typecheck passed"
 }
 
 function test() {
-	print.success "Running tests (Mocha)..."
-	npm run test || {
+	print.success "Running tests (Vitest)..."
+	corepack pnpm run test || {
 		print.error "⚠️ Tests failed"
 		return 1
 	}
 }
 
 function build() {
-	print.success "Running webpack production bundle..."
-	npm run build || {
-		print.error "⚠️ Webpack build failed"
+	print.success "Running Vite production bundle (+ tsc declarations)..."
+	corepack pnpm run build || {
+		print.error "⚠️ Vite build failed"
 		return 1
 	}
 	print.success "✅ build passed"
 }
 
-# Same chain as CI Code Check + build jobs / AGENTS.md pre-push checklist (read-only fixes)
+# Same gates as CI plus build:tsc + Vite build (pre-merge / pre-publish).
+# Order: lint/format → build → test. Build runs before test so the bundle suite in
+# test/exports.test.ts validates an up-to-date dist/index.js (otherwise it self-skips).
 function codecheck() {
-	print.success "Running full code check (eslint → prettier → tsc → test → webpack)..."
-	npm run eslint:check || {
-		print.error "⚠️ ESLint failed"
+	print.success "Running full code check (biome → build:tsc → vite build → test)..."
+	corepack pnpm run biome:check || {
+		print.error "⚠️ Biome failed"
 		return 1
 	}
-	npm run prettier:check || {
-		print.error "⚠️ Prettier failed"
+	corepack pnpm run build:tsc || {
+		print.error "⚠️ TypeScript type-check failed"
 		return 1
 	}
-	npm run build:tsc || {
-		print.error "⚠️ TypeScript build failed"
+	corepack pnpm run build || {
+		print.error "⚠️ Vite build failed"
 		return 1
 	}
-	npm run test || {
+	corepack pnpm run test || {
 		print.error "⚠️ Tests failed"
-		return 1
-	}
-	npm run build || {
-		print.error "⚠️ Webpack build failed"
 		return 1
 	}
 	print.success "✅ codecheck passed"
 }
 
 function install() {
-	print.success "Running npm install..."
-	npm install
+	print.success "Running pnpm install..."
+	corepack pnpm install
 }
 
 # ================================
@@ -283,13 +271,13 @@ function show_welcome() {
 	echo ""
 
 	echo "Project commands:"
-	echo "  • install     - npm install"
-	echo "  • check       - npm run eslint:check && npm run prettier:check"
-	echo "  • fix         - npm run eslint:fix && npm run prettier:fix"
-	echo "  • typecheck   - npm run build:tsc"
-	echo "  • test        - npm run test (Mocha)"
-	echo "  • build       - npm run build (webpack production)"
-	echo "  • codecheck   - full CI chain: lint, format check, tsc, test, webpack"
+	echo "  • install     - corepack pnpm install"
+	echo "  • check       - corepack pnpm run biome:check (lint + format, CI gate)"
+	echo "  • fix         - corepack pnpm run biome:fix (lint + format, apply fixes)"
+	echo "  • typecheck   - corepack pnpm run build:tsc (tsc --noEmit)"
+	echo "  • test        - corepack pnpm run test (Vitest)"
+	echo "  • build       - corepack pnpm run build (Vite production + tsc declarations)"
+	echo "  • codecheck   - full local gate: biome → build:tsc → vite build → test"
 	echo ""
 	echo "AI assistants:"
 	echo "  • claude / claudex   - Claude Code (claudex skips permission prompts)"
