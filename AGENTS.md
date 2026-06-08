@@ -380,6 +380,7 @@ This repository ships with a `.agents/` directory (with `.claude/` symlinked to 
 - `/release` — Run the project's release script, verify the npm publish prerequisites
 - `/devcontainer-up` — Spin up the local Docker dev environment and verify the welcome banner
 - `/fork-rebrand` — Walk a fresh fork through name, description, npm scope, repo URL, license
+- `/toolchain-migration` — Playbook + gotchas for the Vite/Vitest/Biome/pnpm toolchain migration
 
 **Deep Work Plan delegators** (forward to the installed [`deepworkplan-skill`](https://github.com/DailybotHQ/deepworkplan-skill) at `~/.claude/skills/deepworkplan-*`):
 
