@@ -6,7 +6,7 @@ type: skill
 
 # Skill: `/bump-deps`
 
-Bump one or more dependencies in `package.json`, refresh `package-lock.json`, and verify the build still works.
+Bump one or more dependencies in `package.json`, refresh `pnpm-lock.yaml`, and verify the build still works.
 
 ## When to use
 
@@ -20,59 +20,52 @@ Bump one or more dependencies in `package.json`, refresh `package-lock.json`, an
 - **Which packages** are being bumped (or "all" for the scheduled workflow)
 - **Target versions** — exact strings, or "latest stable"
 - **Why** — feature, security, hygiene
-- **Whether to honor `.ncurc.json` rejects** — yes by default
 
-## Pre-flight
+## Toolchain context
 
-`.ncurc.json` currently rejects `chai` and `@types/chai`:
+- Package manager is **pnpm 11.1.2**, pinned via `"packageManager": "pnpm@11.1.2"` and provisioned by Corepack. Always invoke it as `corepack pnpm`.
+- The lockfile is **`pnpm-lock.yaml`** (commit it alongside `package.json`).
+- `.ncurc.json` is now just `{ "upgrade": true }` — there are no rejected packages. (Chai was removed in the Vitest migration, so the old `chai` / `@types/chai` rejects are gone.)
+- `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (7 days). pnpm will refuse to install any version published less than a week ago — a deliberate supply-chain quarantine. A bump to a freshly released version will fail to resolve until it ages out; that's expected, not a bug.
 
-```json
-{
-  "upgrade": true,
-  "reject": ["chai", "@types/chai"]
-}
-```
-
-- **chai** — v6 is ESM-only (`"type": "module"`); this repo runs Mocha + `ts-node` as CommonJS. Stay on **latest 4.x**.
-
-If the user explicitly asks to bump Chai to v5/v6, treat it as a separate task with an ESM migration plan.
-
-For TypeScript, ts-node, mocha, and webpack bumps, check release notes for breaking changes before editing.
+For TypeScript, Vite, Vitest, and Biome bumps, check release notes for breaking changes before editing.
 
 ## Procedure
 
 ### 1. Survey what's outdated
 
 ```bash
-npm run ncu:check
+corepack pnpm run ncu:check
 ```
 
 Output looks like:
 
+```text
+@types/node                    25.7.0  →  25.8.0
+typescript                      6.0.3  →  6.1.0
+vite                           8.0.16  →  8.1.0
+vitest                          4.1.8  →  4.2.0
 ```
-@types/node                    22.4.0  →  22.10.5
-typescript                      5.5.4  →  5.7.3
-webpack                        5.93.0  →  5.97.1
-mocha                          10.7.3  →  10.10.0
-```
+
+`ncu:check` runs `npm-check-updates`, which respects `.ncurc.json` (currently no rejects).
 
 ### 2. Edit `package.json` (one library at a time)
 
-**Don't** run `npm run ncu:upgrade` for batch updates unless the user explicitly asked. Multi-bumps mask which dep broke.
+**Don't** run `corepack pnpm run ncu:upgrade` for batch updates unless the user explicitly asked. Multi-bumps mask which dep broke.
 
 Edit a single version:
 
 ```json
 "devDependencies": {
-  "typescript": "5.7.3",   // was 5.5.4
+  "typescript": "6.1.0",   // was 6.0.3
   ...
 }
 ```
 
-Or use `npm install --save-exact`:
+Or let pnpm pin it exactly:
 
 ```bash
-npm install --save-dev --save-exact typescript@5.7.3
+corepack pnpm add -D --save-exact typescript@6.1.0
 ```
 
 `--save-exact` keeps the version pinned (no `^` prefix) — matches this repo's existing style.
@@ -80,28 +73,28 @@ npm install --save-dev --save-exact typescript@5.7.3
 ### 3. Refresh the lockfile
 
 ```bash
-npm install
+corepack pnpm install
 ```
 
-This updates `package-lock.json` to reflect the new version's transitive deps.
+This updates `pnpm-lock.yaml` to reflect the new version's transitive deps. If pnpm refuses with a quarantine error (`minimumReleaseAge`), the target version is younger than 7 days — wait for it to age out or pick an older patch.
 
 ### 4. Run the full check chain
 
 ```bash
-npm run eslint:check
-npm run prettier:check
-npm run build:tsc
-npm run test
-npm run build
+corepack pnpm run biome:check
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
 ```
 
-All five must pass. If any fails, read the error:
+All four must pass. If any fails, read the error:
 
 | Error pattern                  | Cause                              | Fix                                                                        |
 | ------------------------------ | ---------------------------------- | -------------------------------------------------------------------------- |
 | `TS6053: File 'X' not found`   | TypeScript version dropped support | Roll back or update the affected file                                      |
 | `TS2304: Cannot find name 'X'` | API renamed in the new version     | Read release notes; update call sites                                      |
 | `Module 'X' not found`         | Sub-package was renamed or removed | Check the package's CHANGELOG                                              |
+| `[vite]` / Rollup error        | Vite or esbuild changed behavior   | Check the Vite migration notes; verify `vite.config.ts` still applies      |
 | `Deprecation warning: Y`       | New version deprecated an API      | Address now in the same change if straightforward, otherwise file an issue |
 
 ### 5. Address breaking changes
@@ -114,15 +107,16 @@ If the new version removed an API:
 
 If the new version changed default behavior subtly:
 
-- Check the affected output (e.g., webpack chunk naming, mocha output format)
+- Check the affected output (e.g., Vite chunk/output naming, Vitest reporter format)
 - Update tests if the assertion was version-coupled
 
 ### 6. Smoke-test the published surface
 
-After a webpack or ts-loader bump:
+After a Vite or TypeScript bump:
 
 ```bash
-npm pack --dry-run
+corepack pnpm pack --dry-run
+corepack pnpm run build
 node -e "console.log(require('./dist/index').highlight('hello world', 'world'))"
 ```
 
@@ -133,14 +127,14 @@ Both should look identical to before the bump.
 If the bump is significant:
 
 - New major version → update [`docs/TECHNOLOGIES.md`](../../docs/TECHNOLOGIES.md) version table
-- Behavior change → update relevant docs (e.g., performance numbers if webpack chunking changed)
+- Behavior change → update relevant docs (e.g., performance numbers if Vite output changed)
 - Removed API → update any guide that referenced it
 
 ### 8. Commit
 
 ```bash
-git add package.json package-lock.json <other-affected-files>
-git commit -m "chore: bump typescript to 6.0.3"
+git add package.json pnpm-lock.yaml <other-affected-files>
+git commit -m "chore: bump typescript to 6.1.0"
 ```
 
 Conventional commit type:
@@ -148,8 +142,8 @@ Conventional commit type:
 - `chore` — routine bump (default)
 - `fix` — security or bug-fix bump
 - `feat` — bumping unlocks a new feature you're now using
-- `build` — toolchain (webpack, ts-loader, ts-node)
-- `test` — bumping mocha / chai
+- `build` — toolchain (Vite, esbuild, tsx, nodemon)
+- `test` — bumping Vitest
 
 ### 9. PR description
 
@@ -167,42 +161,33 @@ After a bump:
 
 ```bash
 rm -rf dist
-npm run build:tsc
+corepack pnpm run build:tsc
 ```
 
 Sometimes TypeScript's incremental cache holds old type info. A clean rebuild surfaces real issues.
 
-### Webpack
+### Vite / esbuild
 
-Webpack 5 → 6 (when it ships) will be a major migration. For 5.x → 5.y bumps, read the changelog for "breaking" or "deprecation" — those are the items to act on.
+Vite majors are migration events — read the Vite migration guide. esbuild (pulled in by Vite, allow-listed in `pnpm-workspace.yaml` `allowBuilds`) bumps are usually transparent, but verify `dist/index.js` still builds and stays zero-dependency. After any Vite bump, re-run `pack-check` to confirm the bundle size and contents are unchanged.
 
-### ts-loader
+### Vitest
 
-ts-loader's compatibility table tracks TypeScript versions. After a TypeScript bump, check whether ts-loader needs a matching bump.
-
-### Mocha
-
-The default reporter, glob handling, and timeout behavior changed across major versions. After a Mocha major bump:
+The reporter, config schema, and matcher behavior can shift across majors. After a Vitest major bump:
 
 ```bash
-npm run test                    # Verify default reporter still works
-npm run test:watch              # Verify watch mode
+corepack pnpm run test          # Verify the default run still works
+corepack pnpm exec vitest       # Verify watch mode
 ```
 
-### Chai
+Confirm `vitest.config.ts` still validates against the new version's schema.
 
-`.ncurc.json` rejects `chai` / `@types/chai`. If the user explicitly asks for chai 5+:
+### Biome
 
-1. Read the upstream Chai migration notes (ESM-only majors).
-2. Decide whether the repo will migrate tests to native ESM (`tsx`, `node --import`, or `type: module`).
-3. Update `tsconfig.json`, Mocha invocation, and imports accordingly.
-4. Remove the chai entries from `.ncurc.json`.
+Biome's rule set and config schema evolve between majors. After a Biome bump, update the `$schema` URL in `biome.json` to match the new version and run `corepack pnpm run biome:check` to surface any newly-enabled rules.
 
-This is a multi-PR migration, not a routine bump.
+### pnpm
 
-### ESLint
-
-ESLint 10 + **flat config** live in `eslint.config.mjs`. Major bumps should follow upstream release notes for `typescript-eslint` and `eslint-plugin-prettier`.
+pnpm itself is pinned via the `packageManager` field, not `devDependencies`. To change it, update that field (and the devcontainer if it references a version) — Corepack will provision the new version on next invocation. Bumping pnpm can change lockfile format; regenerate and review `pnpm-lock.yaml` deliberately.
 
 ### Adding a new dependency
 
@@ -214,21 +199,21 @@ This skill is about bumps, not adds. For a new dependency, see [.agents/agents/d
 - Ignore deprecation warnings introduced by the bump
 - Skip the full check chain
 - Force `^` ranges into `package.json` — this repo uses exact versions
-- Push without verifying `npm pack --dry-run` still produces the same files
+- Push without verifying `corepack pnpm pack --dry-run` still produces the same files
 
 ## Do
 
 - Read release notes (at minimum the headline changes)
-- Run all five check-chain steps after every bump
+- Run all four check-chain steps after every bump
 - Update docs in the same commit when the bump is significant
 - Use conventional commit messages
-- Defer to a dedicated migration PR for `chai` / `eslint` (or anything in `.ncurc.json` reject)
+- Defer a Vite / Vitest / TypeScript major to a dedicated migration PR
+- Expect the `minimumReleaseAge` quarantine to block very fresh versions — it's working as designed
 
 ## Verification checklist
 
 - [ ] One library bumped (or batch with explicit user approval)
-- [ ] `package.json` and `package-lock.json` both updated
-- [ ] `.ncurc.json` rejects respected (or migration plan documented)
+- [ ] `package.json` and `pnpm-lock.yaml` both updated
 - [ ] Full check chain passes
 - [ ] No new lint suppressions
 - [ ] Docs updated if affected

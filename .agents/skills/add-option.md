@@ -111,7 +111,7 @@ Rules:
 
 ### 5. Add tests
 
-Edit `test/main.test.ts`. Add at least three tests:
+Edit `test/main.test.ts`. Specs import the Vitest API explicitly (`import { describe, expect, it } from 'vitest'`) and use Jest-style matchers (`toBe`, `toThrow`). Add at least three tests:
 
 ```ts
 it('should match only whole words when wholeWord is true', () => {
@@ -119,7 +119,7 @@ it('should match only whole words when wholeWord is true', () => {
   const query = 'amazing'
   const result = searchTextHL.highlight(text, query, { wholeWord: true })
 
-  expect(result).to.be.equal('<span class="text-highlight">amazing</span> amazingly amazement')
+  expect(result).toBe('<span class="text-highlight">amazing</span> amazingly amazement')
 })
 
 it('should not affect matching when wholeWord is false', () => {
@@ -127,7 +127,7 @@ it('should not affect matching when wholeWord is false', () => {
   const query = 'amazing'
   const result = searchTextHL.highlight(text, query, { wholeWord: false })
 
-  expect(result).to.be.equal(
+  expect(result).toBe(
     '<span class="text-highlight">amazing</span> <span class="text-highlight">amazing</span>ly'
   )
 })
@@ -135,7 +135,7 @@ it('should not affect matching when wholeWord is false', () => {
 it('should throw when wholeWord is not a boolean', () => {
   expect(() => {
     searchTextHL.highlight('text', 'q', { wholeWord: 'true' as any })
-  }).to.throw(Error)
+  }).toThrow()
 })
 ```
 
@@ -147,7 +147,7 @@ it('should respect caseSensitive when wholeWord is true', () => {
     wholeWord: true,
     caseSensitive: true,
   })
-  expect(result).to.be.equal('Amazing <span class="text-highlight">amazing</span>')
+  expect(result).toBe('Amazing <span class="text-highlight">amazing</span>')
 })
 ```
 
@@ -163,19 +163,18 @@ If the option needs a usage example, add it under the Examples section using the
 
 ### 7. Update `README.md`
 
-Mirror the addition in the README's options table (the same one that appears at the bottom of the README). Run `npm run prettier:fix` afterward — Prettier will reflow if needed.
+Mirror the addition in the README's options table (the same one that appears at the bottom of the README). Run `corepack pnpm run biome:fix` afterward — Biome will reflow the table if needed.
 
 ### 8. Verify
 
 ```bash
-npm run eslint:fix
-npm run prettier:fix
-npm run build:tsc
-npm run test
-npm run build
+corepack pnpm run biome:fix
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
 ```
 
-All five must pass.
+All four must pass.
 
 ### 9. Commit
 

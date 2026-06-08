@@ -139,30 +139,30 @@ Rules:
 
 ### 5. Add tests
 
-Create a new `describe` block in `test/main.test.ts`:
+Create a new `describe` block in `test/main.test.ts`. Specs import the Vitest API explicitly (`import { describe, expect, it } from 'vitest'`) and use Jest-style matchers (`toBe`, `toThrow`):
 
 ```ts
 describe('Test unhighlight', () => {
   it('should strip default highlight wrapper', () => {
     const html = 'Hello <span class="text-highlight">world</span>'
     const result = searchTextHL.unhighlight(html)
-    expect(result).to.be.equal('Hello world')
+    expect(result).toBe('Hello world')
   })
 
   it('should support custom tag and class', () => {
     const html = 'Hello <mark class="hit">world</mark>'
     const result = searchTextHL.unhighlight(html, { htmlTag: 'mark', hlClass: 'hit' })
-    expect(result).to.be.equal('Hello world')
+    expect(result).toBe('Hello world')
   })
 
   it('should leave non-matching markup intact', () => {
     const html = 'Hello <strong>world</strong>'
     const result = searchTextHL.unhighlight(html)
-    expect(result).to.be.equal('Hello <strong>world</strong>')
+    expect(result).toBe('Hello <strong>world</strong>')
   })
 
   it('should throw when html is not a string', () => {
-    expect(() => searchTextHL.unhighlight(42 as any)).to.throw(Error)
+    expect(() => searchTextHL.unhighlight(42 as any)).toThrow()
   })
 })
 ```
@@ -188,13 +188,17 @@ Update `AGENTS.md`:
 
 ### 7. Bump the major version
 
+The release script (`.github/scripts/prepare_release.sh`, run by `corepack pnpm run release`) only bumps **patch**, so a major bump is manual. Edit `package.json`'s `version` to the next major, then commit and tag with the project's release message:
+
 ```bash
-npm version major -m "[🤖 DailyBot] New release to v%s launched 🚀"
+git add package.json pnpm-lock.yaml
+git commit -m "[🤖 DailyBot] New release to vX.0.0 launched 🚀"
+git tag -a vX.0.0 -m vX.0.0
 ```
 
-This commits the version bump and creates a tag. **Don't** push yet — the workflow runs `npm version patch` again on merge, which would double-bump. Coordinate with maintainers:
+**Don't** push the tag yet — on merge the workflow runs `prepare_release.sh` (a patch bump) again, which would double-bump. Coordinate with maintainers:
 
-- Either temporarily disable the workflow's `npm run release` step (separate PR, revert after the release lands)
+- Either temporarily disable the workflow's release step (separate PR, revert after the release lands)
 - Or merge the version commit directly to `main` via a tagged release branch
 
 ### 8. Migration notes
@@ -213,20 +217,19 @@ For breaking changes (default flips, removed options), be explicit about the upg
 ### 9. Verify
 
 ```bash
-npm run eslint:fix
-npm run prettier:fix
-npm run build:tsc
-npm run test
-npm run build
-npm pack --dry-run
+corepack pnpm run biome:fix
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
+corepack pnpm pack --dry-run
 ```
 
-All six must pass. The tarball preview should show the same files as before.
+All five must pass. The tarball preview should show the same files as before.
 
 ### 10. Commit
 
 ```bash
-git add src/ test/ docs/ README.md AGENTS.md package.json package-lock.json
+git add src/ test/ docs/ README.md AGENTS.md package.json pnpm-lock.yaml
 git commit -m "feat!: add unhighlight method"
 ```
 
@@ -258,6 +261,6 @@ The `!` after `feat` signals a breaking change in conventional commits.
 - [ ] `README.md` updated with usage and options tables
 - [ ] `AGENTS.md` "Public API surface" callouts updated
 - [ ] `MIGRATING.md` (or equivalent) explains the change
-- [ ] `npm version major` ran (or coordinated with maintainers)
+- [ ] Major version bumped manually + tagged (or coordinated with maintainers)
 - [ ] Full check chain passes
 - [ ] `feat!: ...` conventional commit message

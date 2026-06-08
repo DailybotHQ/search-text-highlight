@@ -23,9 +23,9 @@ The repo defines specialized subagents (see [`.agents/agents/`](../.agents/agent
 | -------------------- | ------------------------------------------------------------------ | ----------------------- |
 | `ts-architect`       | Module layout, public API surface, file boundaries                 | Routine implementation  |
 | `api-designer`       | The shape of `OptionsType` and any new exposed function            | Internal helpers        |
-| `test-author`        | Mocha + Chai tests, test layout                                    | Production code         |
+| `test-author`        | Vitest tests, test layout                                          | Production code         |
 | `dependency-auditor` | `package.json` updates, transitive risks, `.ncurc.json` policy     | Application logic       |
-| `release-engineer`   | Webpack, npm publish, GitHub Actions                               | Day-to-day feature work |
+| `release-engineer`   | Vite build, npm publish, GitHub Actions                            | Day-to-day feature work |
 | `security-reviewer`  | Regex inputs, ReDoS, HTML interpolation                            | Type-only refactors     |
 | `doc-writer`         | Keeps `AGENTS.md`, `README.md`, and `docs/` synchronized with code | Code changes            |
 
@@ -72,7 +72,7 @@ Avoid concurrent edits to the same file. If parallelism is needed:
 | Two agents add unrelated options to `OptionsType`                | Both keep their work; one merges first, the other rebases and updates `getOptions` defaults / validation order                                             |
 | One agent edits `AGENTS.md`, another edits a doc that mirrors it | The `AGENTS.md` rule wins; update the doc to match                                                                                                         |
 | Two agents disagree on validation style (throw vs return error)  | Default to throwing `Error` with English message — it's the [STANDARDS.md](STANDARDS.md) rule. If the rule is wrong, fix the standard first, then the code |
-| Two agents both ran `npm run release` locally                    | Only the CI-driven release counts. Discard the local bumps; the workflow auto-bumps on merge                                                               |
+| Two agents both ran `corepack pnpm run release` locally          | Only the CI-driven release counts. Discard the local bumps; the workflow auto-bumps on merge                                                               |
 
 ## When in doubt
 

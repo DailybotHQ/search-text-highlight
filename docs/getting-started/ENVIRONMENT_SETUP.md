@@ -3,9 +3,11 @@
 A step-by-step guide for setting up a development environment for `search-text-highlight`, starting from zero. Two paths are documented:
 
 - **Path A (recommended): the bundled Docker devcontainer.** Reproducible across macOS / Linux / Windows, ships the AI CLIs pre-installed
-- **Path B: native install.** Faster startup; requires Node + npm on your host
+- **Path B: native install.** Faster startup; requires Node + Corepack-managed pnpm on your host
 
-By the end of this guide you will be able to run the test suite, build the production bundle, and publish locally with `npm pack`.
+By the end of this guide you will be able to run the test suite, build the production bundle, and publish locally with `pnpm pack`.
+
+> This repo uses **pnpm** (pinned via `package.json`'s `"packageManager": "pnpm@11.1.2"` and activated through Corepack). Bare `npm` commands inside the devcontainer are transparently routed to `corepack pnpm` by a wrapper at `/usr/local/bin/npm`, so the `npm`-style helpers you'll see below still work there. On a native host, run `corepack enable` once and then use `corepack pnpm` (or plain `pnpm`).
 
 > Already have your tools installed? Skip to [Running Locally](RUNNING_LOCALLY.md).
 > Hit a problem? Check [Troubleshooting](TROUBLESHOOTING.md).
@@ -36,7 +38,7 @@ docker compose up -d --build
 docker compose ps        # Should show `searchtexthl` as Up
 ```
 
-The first build pulls the Node 24 base image, installs Chromium, GitHub CLI, Claude Code, OpenAI Codex, and Cursor CLI — expect ~3-5 minutes on a warm network.
+The first build pulls the Node 24.16.0 base image, installs Chromium, GitHub CLI, Claude Code, OpenAI Codex, and Cursor CLI — expect ~3-5 minutes on a warm network.
 
 ### 4. Get a shell
 
@@ -46,8 +48,8 @@ docker exec -it searchtexthl bash
 
 You'll see the welcome banner from `docker/custom_commands.sh`:
 
-```
-🚀 Search Text Highlight Development Container
+```text
+🚀 search-text-highlight — development container
 ✅ Running inside Docker container
 ```
 
@@ -56,8 +58,8 @@ You'll see the welcome banner from `docker/custom_commands.sh`:
 Inside the container:
 
 ```bash
-install                  # → npm install
-test                     # → npm run test (sanity check)
+install                  # → corepack pnpm install
+test                     # → corepack pnpm run test (Vitest sanity check)
 ```
 
 If `test` passes, your environment is ready.
@@ -82,15 +84,15 @@ mkdir -p .devcontainer
 cp .devcontainer_example/devcontainer.json .devcontainer/devcontainer.json
 ```
 
-Then **VS Code → Reopen in Container** opens the project inside the same container with Mocha, ESLint, Prettier, GitLens, and EditorConfig extensions pre-installed. The `.devcontainer/` folder is gitignored — your overrides won't conflict with other contributors.
+Then **VS Code → Reopen in Container** opens the project inside the same container with the Biome, GitLens, and EditorConfig extensions pre-installed (Biome handles both linting and formatting; Vitest has its own VS Code extension if you want a Test Explorer). The `.devcontainer/` folder is gitignored — your overrides won't conflict with other contributors.
 
 ### 8. Verify
 
 Inside the container:
 
 ```bash
-node --version           # v24.x.x
-npm --version            # 10.x.x
+node --version           # v24.16.0
+corepack pnpm --version  # 11.1.2
 git --version
 gh --version
 claude --version
@@ -100,14 +102,13 @@ codex --version
 Then a final pre-flight:
 
 ```bash
-npm run eslint:check
-npm run prettier:check
-npm run build:tsc
-npm run test
-npm run build
+corepack pnpm run biome:check
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
 ```
 
-All five must pass. Move on to [Running Locally](RUNNING_LOCALLY.md).
+All four must pass. Move on to [Running Locally](RUNNING_LOCALLY.md).
 
 ---
 
@@ -115,21 +116,22 @@ All five must pass. Move on to [Running Locally](RUNNING_LOCALLY.md).
 
 ### 1. What you need to install
 
-| Tool                      | Required version                                  | How to install                                |
-| ------------------------- | ------------------------------------------------- | --------------------------------------------- |
-| **Node.js**               | 24.15.0 (matches `engines`, CI, and devcontainer) | [nodejs.org](https://nodejs.org) or via `nvm` |
-| **npm**                   | 10.x+ (ships with Node 24)                        | bundled with Node                             |
-| **Git**                   | any recent version                                | platform default                              |
-| (optional) **GitHub CLI** | latest                                            | [cli.github.com](https://cli.github.com)      |
+| Tool                      | Required version                                            | How to install                                |
+| ------------------------- | ---------------------------------------------------------- | --------------------------------------------- |
+| **Node.js**               | 24.16.0 (pinned in `.node-version` / `.nvmrc`; CI + devcontainer match) | [nodejs.org](https://nodejs.org) or via `nvm` |
+| **pnpm**                  | 11.1.2 (pinned via `packageManager`, activated by Corepack) | `corepack enable` (Corepack ships with Node)  |
+| **Git**                   | any recent version                                          | platform default                              |
+| (optional) **GitHub CLI** | latest                                                      | [cli.github.com](https://cli.github.com)      |
 
-`engines` in `package.json` pins Node to `24.15.0`. CI and the devcontainer use the same version — that's the canonical target.
+`.node-version` and `.nvmrc` pin Node to `24.16.0`; `engines.node` in `package.json` only requires `>=22.0.0`, but CI and the devcontainer both run `24.16.0` — that's the canonical target. The package manager is pinned with `"packageManager": "pnpm@11.1.2"`, so Corepack downloads the exact pnpm version for you.
 
 If you use `nvm`:
 
 ```bash
-nvm install 24.15.0
-nvm use 24.15.0
-node --version           # v24.15.0
+nvm install 24.16.0
+nvm use 24.16.0
+node --version           # v24.16.0
+corepack enable          # activate the pinned pnpm
 ```
 
 ### 2. Clone and install
@@ -137,40 +139,38 @@ node --version           # v24.15.0
 ```bash
 git clone https://github.com/DailyBotHQ/search-text-highlight.git
 cd search-text-highlight
-npm install
+corepack enable                              # one-time, activates pnpm@11.1.2
+corepack pnpm install --frozen-lockfile
 ```
 
-`npm install` reads `package-lock.json` and installs the exact versions every CI job uses. Don't substitute `yarn` or `pnpm` — the lockfile is npm-format.
+`corepack pnpm install --frozen-lockfile` reads `pnpm-lock.yaml` and installs the exact versions every CI job uses. Don't substitute `npm` or `yarn` — the lockfile is pnpm-format. pnpm also enforces the supply-chain guard configured in `pnpm-workspace.yaml` (`minimumReleaseAge: 10080` — only versions published at least a week ago, and `allowBuilds: { esbuild: true }` for the one install script this toolchain needs). See [the rationale](https://xergioalex.com/blog/supply-chain-attacks-ai-era/).
 
 ### 3. Verify
 
 ```bash
-npm run eslint:check
-npm run prettier:check
-npm run build:tsc
-npm run test
-npm run build
+corepack pnpm run biome:check
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
 ```
 
-All five must pass. If any fail, see [Troubleshooting](TROUBLESHOOTING.md).
+All four must pass. If any fail, see [Troubleshooting](TROUBLESHOOTING.md).
 
 ### 4. (Optional) Editor setup
 
 The repo ships with editor configs:
 
 - `.editorconfig` — 2-space indent, LF, UTF-8
-- `.prettierrc` — single quotes, no semicolons, trailing commas `es5`
-- `eslint.config.mjs` — ESLint flat config + Prettier integration
+- `biome.json` — Biome lint + format (single quotes, no semicolons, trailing commas `es5`)
 
 Recommended VS Code extensions (mirrors the devcontainer's):
 
-- `dbaeumer.vscode-eslint`
-- `esbenp.prettier-vscode`
+- `biomejs.biome`
 - `EditorConfig.EditorConfig`
-- `compulim.vscode-mocha` + `hbenl.vscode-mocha-test-adapter` (if you use the Test Explorer UI)
+- `vitest.explorer` (if you use the Test Explorer UI)
 - `eamodio.gitlens`
 
-Set Prettier as the default formatter and enable "Format on Save" so quotes / semicolons stay correct.
+Set Biome as the default formatter and enable "Format on Save" so quotes / semicolons stay correct.
 
 ---
 
@@ -210,14 +210,13 @@ claudex                  # Claude Code with skip-permissions
 Run these and confirm each succeeds before moving on:
 
 ```bash
-node --version                              # 20.x or 24.x (host vs devcontainer)
-npm --version                               # 10.x
+node --version                              # v24.16.0 (host and devcontainer)
+corepack pnpm --version                     # 11.1.2
 git --version
-npm run eslint:check                        # Lint
-npm run prettier:check                      # Format
-npm run build:tsc                           # Type-check
-npm run test                                # Mocha suite
-npm run build                               # Webpack production bundle
+corepack pnpm run biome:check               # Lint + format (Biome)
+corepack pnpm run build:tsc                 # Type-check
+corepack pnpm run test                      # Vitest suite
+corepack pnpm run build                     # Vite production bundle + tsc declarations
 ```
 
 If everything passes, head to [Running Locally](RUNNING_LOCALLY.md). If something failed, the [troubleshooting guide](TROUBLESHOOTING.md) covers every issue we've hit during setup.

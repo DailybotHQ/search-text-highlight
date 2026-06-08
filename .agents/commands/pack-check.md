@@ -1,12 +1,12 @@
 ---
 name: pack-check
-description: Inspect what npm pack would publish
+description: Inspect what pnpm pack would publish
 type: command
 ---
 
 # Command: `pack-check`
 
-Verify the npm tarball that would ship to consumers. Use before a release, after editing `.npmignore`, or after a webpack config change.
+Verify the npm tarball that would ship to consumers. Use before a release, after editing the `files` whitelist in `package.json`, or after a Vite / `tsc` build-config change.
 
 ## Invocation
 
@@ -19,60 +19,57 @@ Verify the npm tarball that would ship to consumers. Use before a release, after
 ## What it does
 
 ```bash
-npm run build && npm pack --dry-run
+corepack pnpm run build && corepack pnpm pack --dry-run
 ```
 
-Builds the production bundle, then asks npm to list (without producing) every file that would land in the tarball.
+Builds the production bundle (`vite build` + declaration emit), then asks pnpm to list (without producing) every file that would land in the tarball.
+
+> **Publishing is whitelist-driven.** `package.json` declares `"files": ["dist"]`, so only `dist/` (plus the always-included `package.json`, `README.md`, and `LICENSE`) ships. There is no `.npmignore` to maintain — to change what publishes, edit the `files` array.
 
 ## Expected output
 
-```
-> search-text-highlight@2.0.8 build
-> webpack --mode production --progress
-asset index.js 1.34 KiB [emitted]
-webpack compiled successfully
+```text
+> search-text-highlight@2.1.3 build
+> vite build && tsc -p tsconfig.build.json --emitDeclarationOnly
+✓ built in Xms
 
-npm notice
-npm notice 📦  search-text-highlight@2.0.8
+npm notice 📦  search-text-highlight@2.1.3
 npm notice === Tarball Contents ===
 npm notice 1.0kB LICENSE
 npm notice 5.1kB README.md
 npm notice 1.4kB dist/index.d.ts
+npm notice  ... dist/lib/type.d.ts
+npm notice  ... dist/lib/utils.d.ts
 npm notice 12.3kB dist/index.js
 npm notice 2.5kB package.json
 npm notice === Tarball Details ===
 npm notice name:          search-text-highlight
-npm notice version:       2.0.8
-npm notice filename:      search-text-highlight-2.0.8.tgz
-npm notice package size:  10.0kB
-npm notice unpacked size: 22.4kB
-npm notice shasum:        ...
-npm notice integrity:     sha512-...
-npm notice total files:   5
+npm notice version:       2.1.3
+npm notice total files:   ...
 ```
 
 ## What you're looking for
 
-The tarball should contain exactly five files:
+The tarball should contain the manifest files plus the `dist/` tree:
 
 1. `package/LICENSE`
 2. `package/README.md`
 3. `package/package.json`
-4. `package/dist/index.js`
-5. `package/dist/index.d.ts`
+4. `package/dist/index.js` (the Vite CommonJS bundle)
+5. `package/dist/index.d.ts` and the `package/dist/lib/*.d.ts` declarations (emitted by `tsc -p tsconfig.build.json --emitDeclarationOnly`)
 
 ## Red flags
 
 | File you see                | Problem                                                          |
 | --------------------------- | ---------------------------------------------------------------- |
-| `package/src/...`           | Source TypeScript leaked — update `.npmignore`                   |
-| `package/test/...`          | Test files leaked — update `.npmignore`                          |
-| `package/.github/...`       | Workflows leaked — update `.npmignore`                           |
-| `package/docs/...`          | Docs leaked — update `.npmignore`                                |
-| `package/tmp/...`           | Scratch leaked — update `.npmignore` (and check `tmp/` itself)   |
-| `package/dist/index.js.map` | Source maps leaked — fine for development, debate for production |
-| Missing `dist/index.d.ts`   | Declaration emit broke — run `npm run build:tsc`                 |
-| Missing `dist/index.js`     | Webpack didn't produce output — run `/fix-build`                 |
+| `package/src/...`           | Source TypeScript leaked — the `files` whitelist is too broad    |
+| `package/test/...`          | Test files leaked — the `files` whitelist is too broad           |
+| `package/.github/...`       | Workflows leaked — the `files` whitelist is too broad            |
+| `package/docs/...`          | Docs leaked — the `files` whitelist is too broad                 |
+| `package/tmp/...`           | Scratch leaked — the `files` whitelist is too broad              |
+| `package/dist/index.js.map` | Source maps leaked — Vite is configured `sourcemap: false`; investigate |
+| Missing `dist/index.d.ts`   | Declaration emit broke — run `corepack pnpm run build:types`     |
+| Missing `dist/index.js`     | Vite didn't produce output — run `/fix-build`                    |
 
 ## Bundle-size targets
 
@@ -85,47 +82,28 @@ The tarball should contain exactly five files:
 If you exceed targets:
 
 ```bash
-npm run build
+corepack pnpm run build
 ls -lh dist/
 gzip -c dist/index.js | wc -c
 ```
 
-Investigate before releasing — almost always an accidental dep import or a webpack config drift.
+Investigate before releasing — almost always an accidental dep import or a Vite config drift (e.g., an accidental `rollupOptions.external` change that stopped inlining).
 
-## Updating `.npmignore`
+## Adjusting what publishes
 
-If a file shouldn't ship, add it to `.npmignore`:
+Publishing is controlled by the `files` array in `package.json`:
 
-```
-# .npmignore
-.github
-.devcontainer
-.devcontainer_example
-docker
-docs
-src
-test
-tmp
-.babelrc
-.editorconfig
-eslint.config.mjs
-.gitignore
-.ncurc.json
-.prettierrc
-package-lock.json
-tsconfig.json
-webpack.config.js
-.travis.yml
-get_github_release_log.sh
-git_logs_output.txt
-git_logs.txt
+```json
+"files": [
+  "dist"
+]
 ```
 
-Re-run `pack-check` and confirm only the five canonical files are listed.
+To exclude something inside `dist/` or add another top-level path, edit this array — not a `.npmignore`. Re-run `pack-check` and confirm only the intended files are listed.
 
 ## Don't
 
-- Skip the `npm run build` step — `npm pack` doesn't rebuild for you
+- Skip the `corepack pnpm run build` step — `pnpm pack` doesn't rebuild for you
 - Edit `dist/` files manually before packing — they'll be overwritten on the next build
 - Trust an old `dist/` — always rebuild before checking
 - Publish without running this command first
@@ -133,8 +111,8 @@ Re-run `pack-check` and confirm only the five canonical files are listed.
 ## Do
 
 - Run before every release
-- Run after editing `.npmignore`
-- Run after editing `webpack.config.js` or `tsconfig.json`
+- Run after editing the `files` whitelist in `package.json`
+- Run after editing `vite.config.ts` or `tsconfig.build.json`
 - Compare output against the previous release if size unexpectedly changed
 
 ## See also

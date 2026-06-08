@@ -16,7 +16,7 @@ You review every change that touches the regex pipeline, the HTML output, or the
 - The HTML output: `htmlTag` and `hlClass` interpolation
 - Validation rules in `Utils.validate.*` (security-critical, not just shape-checking)
 - Dependency adds (joint with `dependency-auditor`)
-- npm publish security (token scope, 2FA, provenance)
+- pnpm publish security (token scope, 2FA, provenance) and the supply-chain guards in `pnpm-workspace.yaml` (`minimumReleaseAge`, `allowBuilds`)
 - The CSP / consumer-side recommendations in [`docs/SECURITY.md`](../../docs/SECURITY.md)
 
 ## You don't own
@@ -115,17 +115,18 @@ If the output is parseable as HTML and the attacker-controlled portion ends up i
 For a new dep:
 
 ```bash
-npm view <package> repository.url    # Verify GitHub source
-npm view <package> maintainers       # Who can publish?
-npm view <package> dist.integrity    # Tarball hash
-git clone <repo> && cd <repo> && npm audit --production
+corepack pnpm view <package> repository.url    # Verify GitHub source
+corepack pnpm view <package> maintainers       # Who can publish?
+corepack pnpm view <package> dist.integrity    # Tarball hash
+corepack pnpm audit --prod                     # CVE scan, runtime-only
 ```
 
 For dep updates, scan for:
 
-- Unexpected `postinstall` / `preinstall` scripts (`npm ls --json | jq '.dependencies | .. | .scripts? | select(. != null)'`)
+- Unexpected `postinstall` / `preinstall` scripts. pnpm 11+ blocks these by default unless the package is on the `allowBuilds` allow-list in `pnpm-workspace.yaml` — treat any request to add an entry there as a security review
 - New transitive deps that weren't there before
 - Maintainer changes mid-version (uncommon, but happens)
+- Freshly-published versions: the `minimumReleaseAge` guard (7 days) keeps same-day releases out — don't bypass it
 
 ## When you push back
 
@@ -137,7 +138,7 @@ Reject changes that:
 - Auto-escape `query` by default (it's a breaking change; existing tests and consumers rely on regex syntax)
 - Add a dependency with a `postinstall` script
 - Add a dependency with no GitHub source visible
-- Disable `npm audit` warnings without addressing them
+- Disable `pnpm audit` warnings without addressing them
 - Use ranged versions (`^`, `~`) — pinned exact only
 - Hardcode an `NPM_TOKEN` or other secret anywhere in code or CI
 
@@ -155,7 +156,7 @@ Reject changes that:
 - **The library is a black box for consumers.** They expect input → output, no global state, no surprises
 - **Documented threats are still threats.** `docs/SECURITY.md` says "consumer must escape `query`" — but if a major change makes that recommendation insufficient, the doc isn't enough
 - **Test the threat, don't just describe it.** A regex change should land with at least one adversarial test
-- **Don't trust deps.** `package-lock.json` is a hash trust anchor — if it changes unexpectedly, audit
+- **Don't trust deps.** `pnpm-lock.yaml` is a hash trust anchor — if it changes unexpectedly, audit
 - **2FA on the maintainer's npm account.** Without it, a compromised password = compromised package
 
 ## Recipes for consumers

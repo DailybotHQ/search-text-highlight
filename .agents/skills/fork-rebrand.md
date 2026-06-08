@@ -54,8 +54,8 @@ Edit fields:
 
 Keep:
 
-- `main: "dist/index.js"`, `types: "dist/index.d.ts"`, `engines: { "node": "24.15.0" }` — load-bearing
-- `scripts: { ... }` — change only the `release` template if you want a different commit message
+- `main: "dist/index.js"`, `types: "dist/index.d.ts"`, `engines: { "node": ">=22.0.0" }`, `packageManager: "pnpm@11.1.2"`, `files: ["dist"]` — all load-bearing
+- `scripts: { ... }` — change only the release flow if you want a different commit message (the message lives in `.github/scripts/prepare_release.sh`, not in `package.json`)
 
 ### 3. (If renaming the public object) Rename `searchTextHL`
 
@@ -68,8 +68,8 @@ Open each file and rename to your new identifier. If you keep `searchTextHL`, sk
 After renaming:
 
 ```bash
-npm run eslint:fix && npm run prettier:fix
-npm run build:tsc && npm run test && npm run build
+corepack pnpm run biome:fix
+corepack pnpm run build:tsc && corepack pnpm run test && corepack pnpm run build
 ```
 
 ### 4. Replace repo URL references
@@ -140,7 +140,7 @@ The README is the public face. Update:
 After editing:
 
 ```bash
-npm run prettier:fix
+corepack pnpm run biome:fix
 ```
 
 ### 9. Configure GitHub repository
@@ -163,10 +163,10 @@ If removing DailyBot, edit the workflows:
 - Delete the corresponding workflow steps in `pull_request_check.yml`
 - Replace with Slack webhook / Discord / your provider, or leave silent
 
-### 10. Verify `.npmignore`
+### 10. Verify the publish whitelist
 
 ```bash
-npm pack --dry-run
+corepack pnpm pack --dry-run
 ```
 
 Should list only:
@@ -175,23 +175,22 @@ Should list only:
 - `package/README.md`
 - `package/LICENSE`
 - `package/dist/index.js`
-- `package/dist/index.d.ts`
+- `package/dist/index.d.ts` (and the `dist/lib/*.d.ts` declarations)
 
-If anything else appears, update `.npmignore`.
+Publishing is controlled by `package.json` `"files": ["dist"]` (a whitelist), not a `.npmignore`. If source, tests, or docs appear, fix the `files` array.
 
 ### 11. Run the full check chain
 
 ```bash
-npm install
-npm run eslint:check
-npm run prettier:check
-npm run build:tsc
-npm run test
-npm run build
-npm pack --dry-run
+corepack pnpm install --frozen-lockfile
+corepack pnpm run biome:check
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
+corepack pnpm pack --dry-run
 ```
 
-All six must pass.
+All must pass.
 
 ### 12. First commit
 
@@ -222,8 +221,8 @@ Should show a green run on `main` (or on the first PR you open).
 CI publishes patches automatically on merge — but the **first** publish is manual:
 
 ```bash
-npm pack --dry-run                 # Final sanity
-npm publish --access public        # --access public required for scoped names
+corepack pnpm pack --dry-run                      # Final sanity
+corepack pnpm publish --access public --no-git-checks   # --access public required for scoped names
 ```
 
 After this, every merge to `main` auto-publishes via the workflow.
@@ -242,7 +241,7 @@ Optional but useful. Note any quirks, secrets you set, decisions you made, so th
 
 ## Do
 
-- Verify the npm name is available before committing: `npm view <name>` (404 = available)
+- Verify the npm name is available before committing: `corepack pnpm view <name>` (404 = available)
 - Pick a license deliberately — switching later is awkward
 - Use a granular npm token (publish scope, single package) instead of a global token
 - Enable 2FA on the npm account that owns the package: `npm profile enable-2fa auth-and-writes`
@@ -257,8 +256,8 @@ Optional but useful. Note any quirks, secrets you set, decisions you made, so th
 - [ ] GitHub Actions: bot identity, secrets, variables configured (or DailyBot removed)
 - [ ] README rewritten with new product name
 - [ ] License chosen and copyright updated
-- [ ] `npm pack --dry-run` shows only the publishable files
-- [ ] All six sanity-check commands pass
+- [ ] `corepack pnpm pack --dry-run` shows only the publishable files
+- [ ] All sanity-check commands pass
 - [ ] Branch protection set on `main`
-- [ ] First manual `npm publish --access public` succeeded
+- [ ] First manual `corepack pnpm publish --access public --no-git-checks` succeeded
 - [ ] `feat: rebrand ...` commit pushed

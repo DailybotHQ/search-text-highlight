@@ -1,4 +1,3 @@
 {
-  "upgrade": true,
-  "reject": ["chai", "@types/chai"]
+  "upgrade": true
 }

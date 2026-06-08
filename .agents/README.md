@@ -35,7 +35,7 @@ This directory contains **skills** (slash-command procedures), **commands** (low
 │   └── doc-writer.md
 └── commands/                # Shell runbooks + DWP delegators
     ├── verify.md            # The full pre-push check chain
-    ├── pack-check.md        # `npm pack --dry-run` walkthrough
+    ├── pack-check.md        # `pnpm pack --dry-run` walkthrough
     ├── ci-reproduce.md      # Reproduce a failing CI step locally
     ├── reset-env.md         # Clear node_modules + caches and reinstall
     ├── dwp-create.md        # Delegate to deepworkplan-create
@@ -57,9 +57,9 @@ Reusable procedures invoked by slash command (or `#` in non-Claude hosts).
 | ------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | `/add-option`      | Add a new option to `OptionsType`, wire it through validation, defaults, tests, and docs | [skills/add-option.md](skills/add-option.md)           |
 | `/add-feature`     | Add a wholly new method to `searchTextHL` (rare; major version bump)                     | [skills/add-feature.md](skills/add-feature.md)         |
-| `/write-tests`     | Author Mocha + Chai tests for the current change                                         | [skills/write-tests.md](skills/write-tests.md)         |
-| `/fix-build`       | Diagnose and repair a failing webpack / tsc build                                        | [skills/fix-build.md](skills/fix-build.md)             |
-| `/lint-fix`        | Run ESLint and Prettier with `--fix` and tidy follow-ups                                 | [skills/lint-fix.md](skills/lint-fix.md)               |
+| `/write-tests`     | Author Vitest tests for the current change                                               | [skills/write-tests.md](skills/write-tests.md)         |
+| `/fix-build`       | Diagnose and repair a failing Vite / tsc build                                           | [skills/fix-build.md](skills/fix-build.md)             |
+| `/lint-fix`        | Run Biome with `--write` and tidy follow-ups                                             | [skills/lint-fix.md](skills/lint-fix.md)               |
 | `/bump-deps`       | Update `package.json` safely (changelog + verification, respects `.ncurc.json`)          | [skills/bump-deps.md](skills/bump-deps.md)             |
 | `/release`         | Walk through the release workflow, verify prerequisites, and ship                        | [skills/release.md](skills/release.md)                 |
 | `/devcontainer-up` | Spin up the local Docker dev environment and verify it                                   | [skills/devcontainer-up.md](skills/devcontainer-up.md) |
@@ -89,9 +89,9 @@ Adopt the persona described in the file when the task matches.
 | -------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
 | `ts-architect`       | Module layout, public API surface, file boundaries             | [agents/ts-architect.md](agents/ts-architect.md)             |
 | `api-designer`       | Shape of `OptionsType` and any new exposed function            | [agents/api-designer.md](agents/api-designer.md)             |
-| `test-author`        | Mocha + Chai tests, layout, conventions                        | [agents/test-author.md](agents/test-author.md)               |
+| `test-author`        | Vitest tests, layout, conventions                              | [agents/test-author.md](agents/test-author.md)               |
 | `dependency-auditor` | `package.json` updates, transitive risks, `.ncurc.json` policy | [agents/dependency-auditor.md](agents/dependency-auditor.md) |
-| `release-engineer`   | Webpack, npm publish, GitHub Actions                           | [agents/release-engineer.md](agents/release-engineer.md)     |
+| `release-engineer`   | Vite, pnpm publish, GitHub Actions                             | [agents/release-engineer.md](agents/release-engineer.md)     |
 | `security-reviewer`  | Regex inputs, ReDoS, HTML interpolation                        | [agents/security-reviewer.md](agents/security-reviewer.md)   |
 | `doc-writer`         | Keeps `AGENTS.md`, `README.md`, and `docs/` in sync            | [agents/doc-writer.md](agents/doc-writer.md)                 |
 
@@ -102,7 +102,7 @@ Low-level, repeatable shell sequences. Smaller than skills — they don't ask qu
 | Command        | Purpose                                      | File                                                 |
 | -------------- | -------------------------------------------- | ---------------------------------------------------- |
 | `verify`       | Run the full pre-push check chain            | [commands/verify.md](commands/verify.md)             |
-| `pack-check`   | Inspect what `npm pack` would publish        | [commands/pack-check.md](commands/pack-check.md)     |
+| `pack-check`   | Inspect what `pnpm pack` would publish       | [commands/pack-check.md](commands/pack-check.md)     |
 | `ci-reproduce` | Reproduce a failing CI workflow step locally | [commands/ci-reproduce.md](commands/ci-reproduce.md) |
 | `reset-env`    | Clear `node_modules` + caches and reinstall  | [commands/reset-env.md](commands/reset-env.md)       |
 

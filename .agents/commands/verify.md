@@ -19,70 +19,64 @@ Run every check that CI runs, in the same order. Use this before opening a PR or
 ## What it does
 
 ```bash
-npm run eslint:check && \
-  npm run prettier:check && \
-  npm run build:tsc && \
-  npm run test && \
-  npm run build
+corepack pnpm run biome:check && \
+  corepack pnpm run build:tsc && \
+  corepack pnpm run test && \
+  corepack pnpm run build
 ```
 
 Each step gates the next — the chain stops on first failure.
 
 ## Order rationale
 
-1. **`eslint:check`** — fast, catches obvious bugs and style issues
-2. **`prettier:check`** — fast, catches formatting drift
-3. **`build:tsc`** — type-check; surfaces type errors before bundling
-4. **`test`** — runs the Mocha suite via ts-node
-5. **`build`** — webpack production bundle; final verification that the bundle compiles
+1. **`biome:check`** — fast, catches lint issues and formatting drift in one pass
+2. **`build:tsc`** — `tsc -p tsconfig.build.json --noEmit`; type-check before bundling
+3. **`test`** — runs the Vitest suite (`vitest run`)
+4. **`build`** — `vite build && tsc -p tsconfig.build.json --emitDeclarationOnly`; final verification that the bundle and declarations compile
 
 If you want the auto-fixing variant first, run `lint-fix` (the `/lint-fix` skill) before this command.
 
 ## Expected output
 
-```
-> search-text-highlight@2.0.8 eslint:check
-> eslint --ext .ts --ignore-path .gitignore .
+```text
+> search-text-highlight@2.1.3 biome:check
+> biome check
 
-> search-text-highlight@2.0.8 prettier:check
-> prettier -c --ignore-path .gitignore '**/*.{css,html,js,ts,json,md,yaml,yml}' '!package.json'
+Checked N files in Xms. No fixes needed.
 
-Checking formatting...
-All matched files use Prettier code style!
+> search-text-highlight@2.1.3 build:tsc
+> tsc -p tsconfig.build.json --noEmit
 
-> search-text-highlight@2.0.8 build:tsc
-> tsc --build tsconfig.json
+> search-text-highlight@2.1.3 test
+> vitest run
 
-> search-text-highlight@2.0.8 test
-> mocha --require ts-node/register test/**.ts --timeout 25000 --colors
+ ✓ test/main.test.ts (N tests)
+ ✓ test/exports.test.ts (N tests)
 
-  Test search text highlight
-    ✔ should highlight one query substring
-    ...
+ Test Files  2 passed
+      Tests  N passed
 
-  9 passing (15ms)
+> search-text-highlight@2.1.3 build
+> vite build && tsc -p tsconfig.build.json --emitDeclarationOnly
 
-> search-text-highlight@2.0.8 build
-> webpack --mode production --progress
-
-asset index.js 1.34 KiB [emitted]
-webpack 5.93.0 compiled successfully
+vite vX.Y.Z building for production...
+✓ built in Xms
+dist/index.js  ...
 ```
 
 ## On failure
 
-| Failed step      | Skill / next action                                      |
-| ---------------- | -------------------------------------------------------- |
-| `eslint:check`   | Run `/lint-fix`, then re-run `/verify`                   |
-| `prettier:check` | Run `/lint-fix`, then re-run `/verify`                   |
-| `build:tsc`      | See `/fix-build` skill                                   |
-| `test`           | Investigate the failing test; if a regression, add a fix |
-| `build`          | See `/fix-build` skill                                   |
+| Failed step  | Skill / next action                                       |
+| ------------ | --------------------------------------------------------- |
+| `biome:check` | Run `/lint-fix`, then re-run `/verify`                    |
+| `build:tsc`  | See `/fix-build` skill                                    |
+| `test`       | Investigate the failing test; if a regression, add a fix  |
+| `build`      | See `/fix-build` skill                                    |
 
 ## Don't
 
 - Skip a step ("the lint just had a small thing")
-- Run only `npm run test` and call it done
+- Run only `corepack pnpm run test` and call it done
 - Push to a branch without running this locally first
 
 ## Do
@@ -93,8 +87,8 @@ webpack 5.93.0 compiled successfully
 
 ## Variants
 
-- **Quick** (skip the production bundle): `npm run eslint:check && npm run prettier:check && npm run build:tsc && npm run test`
-- **Full** (include `npm pack --dry-run`): everything above + `npm pack --dry-run`
+- **Quick** (skip the production bundle): `corepack pnpm run biome:check && corepack pnpm run build:tsc && corepack pnpm run test`
+- **Full** (include the tarball preview): everything above + `corepack pnpm pack --dry-run`
 
 ## See also
 

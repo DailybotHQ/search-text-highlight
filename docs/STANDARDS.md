@@ -1,12 +1,28 @@
 # Standards
 
-Canonical coding rules for `search-text-highlight`. Every contributor (human or agent) must follow these. ESLint + Prettier handle most details — these standards cover the things tooling cannot decide for you.
+Canonical coding rules for `search-text-highlight`. Every contributor (human or agent) must follow these. Biome handles most formatting and lint details — these standards cover the things tooling cannot decide for you.
 
 ## Language
 
 - **English only** for code, identifiers, comments, JSDoc, commit messages, branch names, and PR descriptions
 - The library has no end-user strings (it produces HTML; consumers localize)
-- `no-console: error` is on — do not use `console.log` in `src/`
+- Biome's `noConsole: error` is on for `src/` — do not use `console.log` there (the rule is disabled for `test/**`)
+
+## Formatting and lint (Biome)
+
+Biome (`biome.json`) is the single source of truth for formatting and lint. Run `pnpm run biome:fix` before committing; CI gates on `pnpm run biome:check`. The configured rules:
+
+| Setting              | Value       | Notes                                              |
+| -------------------- | ----------- | -------------------------------------------------- |
+| `semicolons`         | `asNeeded`  | No trailing semicolons unless syntactically needed |
+| `quoteStyle`         | `single`    | Single quotes for string literals                  |
+| `trailingCommas`     | `es5`       | Trailing commas where ES5 allows                   |
+| `lineWidth`          | `120`       | Matches `.editorconfig`                            |
+| `indentStyle` / width| space / 2   | 2-space indent, `useEditorconfig: true`            |
+| `noConsole`          | `error`     | `src/` only — off for `test/**`                    |
+| `noExplicitAny`      | `off`       | `any` is allowed (used for invalid-input tests)    |
+
+Don't disable a rule to silence one warning. If a rule is genuinely wrong for the codebase, change it in `biome.json` deliberately and explain why in the commit message.
 
 ## Files and modules
 
@@ -44,7 +60,7 @@ Full surface details: [API Reference](API_REFERENCE.md).
 ## Types
 
 1. **Every interface lives in `src/lib/type.ts`.** Never inline a structural type in `index.ts` or `utils.ts`
-2. **No `any` in public types.** Use generics or unions. The single `any` exception in this repo is `ObjectType: { [key: string]: any }` — flagged with `// eslint-disable-line` and used only to type opaque consumer payloads if needed
+2. **No `any` in public types.** Use generics or unions. The single `any` exception in this repo is `ObjectType: { [key: string]: any }`, used only to type opaque consumer payloads if needed. Biome permits `any` (`noExplicitAny: off`), so no inline suppression is required
 3. **All option keys are optional.** Required keys would break existing consumers
 4. **Document new option semantics in the JSDoc of the option's own type field**, not in the implementation
 
@@ -102,10 +118,10 @@ Then mirror the change in `src/index.ts`'s use of the option, in `test/main.test
 
 ## Imports
 
-Keep imports readable — Prettier handles spacing. Keep imports:
+Keep imports readable — Biome handles spacing. Keep imports:
 
 - Grouped by source: `node` builtins → external packages → relative
-- Each group separated by **no blank line** (Prettier style)
+- Each group separated by **no blank line** (Biome's import formatting)
 - No wildcard re-exports (`export * from`)
 - No default-export `import` followed by a namespace `import` of the same module
 
@@ -120,7 +136,7 @@ import * as types from './lib/type'
 
 ## Strings, regex, and HTML
 
-1. **Single quotes for string literals.** Prettier rewrites doubles
+1. **Single quotes for string literals.** Biome rewrites doubles
 2. **Template literals for interpolation.** Don't string-concat with `+`
 3. **The `query` argument lands inside `new RegExp(...)`.** Treat any change that touches that path as security-sensitive — see [Security → Regex injection](SECURITY.md#regex-injection--redos)
 4. **`htmlTag` and `hlClass` are interpolated raw into output HTML.** Don't introduce features that interpolate user-controlled values into HTML attributes without an explicit security review
@@ -143,7 +159,7 @@ import * as types from './lib/type'
 
 See [Testing Guide](TESTING_GUIDE.md). Standards summary:
 
-- Tests in `test/` use Mocha + Chai
+- Tests in `test/` use Vitest (import `{ describe, it, expect }` from `vitest` — no globals)
 - One `describe(...)` per public surface; one `it(...)` per behavior
 - Test the contract (input → output), not the implementation (no spying on internal calls)
 - `it` titles start with `should`, are written in English, and describe behavior
@@ -164,29 +180,30 @@ it('calls String.prototype.replace once', () => { ... })
 
 ## Dependencies
 
-1. Edit only `package.json` (and `package-lock.json` updates automatically). Don't pin in two places
+1. Edit only `package.json` (and `pnpm-lock.yaml` updates automatically). Don't pin in two places
 2. **No new `dependencies` without a documented reason.** This package has zero runtime dependencies — adding one shows up in every consumer's `node_modules`
-3. New `devDependencies` should solve a problem the existing toolchain can't (e.g., adding a linter rule we already cover via `@typescript-eslint` is duplication)
+3. New `devDependencies` should solve a problem the existing toolchain can't (e.g., adding a lint rule Biome already covers is duplication)
 4. Keep entries in `package.json` alphabetically sorted by category (`dependencies`, `devDependencies`)
+5. New installs honor `minimumReleaseAge` (`pnpm-workspace.yaml`) — a version published less than a week ago won't resolve. See [Security → Dependencies](SECURITY.md#dependencies)
 
 ## Build hygiene
 
 - Don't commit `dist/` — it's regenerated by CI before publish
 - Don't commit `.env`, `node_modules/`, or `tmp/*` (already in `.gitignore`)
 - Don't disable lint or warnings to silence a problem — fix the root cause
-- Don't change `package.json`'s `main`, `types`, or `engines` fields without coordinating with the release workflow
+- Don't change `package.json`'s `main`, `types`, `engines`, or `packageManager` fields without coordinating with the release workflow
 
 ## Versioning
 
-- Patch (`1.x.Y`): bug fix, internal refactor, doc-only changes — `npm run release` is wired for this
+- Patch (`1.x.Y`): bug fix, internal refactor, doc-only changes — `pnpm run release` is wired for this
 - Minor (`1.X.0`): new option that doesn't change defaults
 - Major (`X.0.0`): default change, signature change, removed option — bump `version` manually and add a migration note to the README
 
-The release script (`npm run release`) defaults to `patch`. For minor/major, run `npm version minor` / `npm version major` with the same `-m` template.
+The release script (`pnpm run release` → `.github/scripts/prepare_release.sh`) defaults to a `patch` bump. For minor/major, edit `package.json`'s `version` manually and create the matching commit + tag with the same message template before merging.
 
 ## CI
 
-- The same checks that run locally (`eslint:check`, `prettier:check`, `test`) gate every PR
+- The same checks that run locally (`biome:check`, `build`, `test`) gate every PR
 - `release_and_publish` triggers on PR merge to `main` — no manual publish to npm
 - Branch naming: feature branches use `feature__<topic>`, automation branches use the existing `feature__packages_versions_update`
 

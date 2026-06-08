@@ -1,68 +1,74 @@
 # Development Commands
 
-Reference for every npm script and shell command you'll run during day-to-day development. All scripts are defined in [`package.json`](../package.json) and are reproduced verbatim here so you don't have to dig.
+Reference for every pnpm script and shell command you'll run during day-to-day development. All scripts are defined in [`package.json`](../package.json) and are reproduced verbatim here so you don't have to dig.
+
+> **Package manager:** this repo uses **pnpm via Corepack**. Run scripts as `pnpm run <name>` (or `corepack pnpm run <name>` if you haven't enabled Corepack). Inside the devcontainer a bare `npm` is routed to `corepack pnpm`, so `npm run ...` still works there. Never install pnpm globally — Corepack pins the version from `package.json`'s `packageManager` field.
 
 ## Inner-loop favorites
 
-| Goal                        | Command                                      | Notes                                                             |
-| --------------------------- | -------------------------------------------- | ----------------------------------------------------------------- |
-| Iterate on logic            | `npm run test:watch`                         | Mocha re-runs on save (`-w` watching `src` + `test`)              |
-| Run the source directly     | `npm run dev`                                | `nodemon src/index.ts` — useful for ad-hoc experimentation        |
-| Lint + format in one go     | `npm run eslint:fix && npm run prettier:fix` | Almost always the right pre-commit step                           |
-| Type-check without a bundle | `npm run build:tsc`                          | `tsc --build tsconfig.json` — fastest path to surface type errors |
-| One-shot tests              | `npm run test`                               | Same command CI runs                                              |
+| Goal                        | Command                | Notes                                                            |
+| --------------------------- | ---------------------- | --------------------------------------------------------------- |
+| Iterate on logic            | `pnpm run test:watch`  | Vitest watch mode — re-runs affected specs on save              |
+| Run the source directly     | `pnpm run dev`         | `nodemon --exec tsx src/index.ts` — useful for ad-hoc experiments |
+| Lint + format in one go     | `pnpm run biome:fix`   | Biome `check --write` — almost always the right pre-commit step |
+| Type-check without a bundle | `pnpm run build:tsc`   | `tsc -p tsconfig.build.json --noEmit` — fastest type-error pass |
+| One-shot tests              | `pnpm run test`        | `vitest run` — same command CI runs                            |
 
 ## Develop
 
 ```bash
-npm install              # Install all dependencies — refreshes node_modules + package-lock.json
-npm run dev              # Run src/index.ts under nodemon (auto-restart on change)
-npm run start            # Execute the built dist/index.js (verifies the bundle works)
+corepack pnpm install --frozen-lockfile   # Install all dependencies from the committed pnpm-lock.yaml
+pnpm run dev                              # Run src/index.ts under nodemon + tsx (auto-restart on change)
+pnpm run start                            # Execute the built dist/index.js (verifies the bundle works)
 ```
 
-`npm run dev` is useful when you want to import the library into a quick scratch script in `tmp/` and iterate.
+`pnpm run dev` is useful when you want to import the library into a quick scratch script in `tmp/` and iterate.
 
 ## Test
 
 ```bash
-npm run test             # mocha test/**.ts (one shot)
-npm run test:watch       # mocha -w  — re-runs on src/ or test/ change
+pnpm run test            # vitest run (one shot)
+pnpm run test:watch      # vitest  — re-runs affected specs on src/ or test/ change
 ```
 
 Run a single test file:
 
 ```bash
-npx mocha --require ts-node/register test/main.test.ts --timeout 25000 --colors
+pnpm vitest run test/main.test.ts
 ```
 
-Run a single `it(...)` block by description (Mocha's `--grep`):
+Run a single `it(...)` block by description (Vitest's `-t` / `--testNamePattern`):
 
 ```bash
-npx mocha --require ts-node/register test/**.ts --timeout 25000 --colors --grep "should highlight an unicode substring"
+pnpm test -- -t "should highlight an unicode substring"
+# or, equivalently:
+pnpm vitest run -t "should highlight an unicode substring"
 ```
 
-Reports go to stdout. There's no HTML reporter wired by default; add one when you need it (`mocha-junit-reporter` for CI, etc.) and document it here.
+Reports go to stdout. Vitest's default reporter is enough; add a JUnit/HTML reporter via `vitest.config.ts` when CI needs it and document it here.
 
 ## Lint and format
 
+Biome is a single tool for both linting and formatting (it replaced ESLint + Prettier):
+
 ```bash
-npm run eslint:check     # ESLint, --ignore-path .gitignore (read-only)
-npm run eslint:fix       # ESLint with --fix
-npm run prettier:check   # Prettier --check (read-only)
-npm run prettier:fix     # Prettier --write
+pnpm run biome:check        # Lint + format check (read-only) — what CI runs
+pnpm run biome:fix          # Lint + format with safe auto-fixes (check --write)
+pnpm run biome:fix:unsafe   # Adds Biome's unsafe fixes (review the diff carefully)
 ```
 
-The Prettier glob is `**/*.{css,html,js,ts,json,md,yaml,yml}` minus `package.json` (excluded explicitly so npm doesn't fight us over key ordering).
+Scope and rules live in `biome.json`. It checks `src/`, `test/`, and root `*.ts` / `*.mjs` / `*.json` files, ignoring `dist/`, `node_modules/`, lockfiles, and a few infra paths.
 
 ## Build
 
 ```bash
-npm run build            # Webpack production bundle → dist/index.js
-npm run build:dev        # Webpack development bundle (unminified, source-map friendly)
-npm run build:tsc        # tsc --build  → dist/*.js + dist/*.d.ts (declarations)
+pnpm run build            # Vite library bundle (dist/index.js) + tsc declarations (dist/*.d.ts)
+pnpm run build:dev        # Vite development-mode bundle (vite build --mode development)
+pnpm run build:types      # Declarations only (tsc -p tsconfig.build.json --emitDeclarationOnly)
+pnpm run build:tsc        # Type-check only, no emit (tsc -p tsconfig.build.json --noEmit)
 ```
 
-CI publishes the **webpack production** output. `build:tsc` exists for declaration emission and as a fast type-check during development.
+`pnpm run build` is the published artifact: Vite emits the minified CommonJS bundle, then `tsc` emits the `.d.ts` files. `build:tsc` is the fast type-check used during development and as a pre-commit gate.
 
 After a build, inspect the bundle:
 
@@ -74,23 +80,23 @@ node dist/index.js       # Sanity check — should be a no-op (no top-level exec
 ## Maintenance
 
 ```bash
-npm run ncu:check        # List packages with newer versions, honoring .ncurc.json reject list
-npm run ncu:upgrade      # Apply upgrades to package.json (then run `npm install` + tests)
-npm run release          # `npm version patch` with the project's release commit message + tag
-npm install              # Refresh package-lock.json after manual edits to package.json
+pnpm run ncu:check        # List packages with newer versions, honoring .ncurc.json reject list
+pnpm run ncu:upgrade      # Apply upgrades to package.json (then run install + tests)
+pnpm run release          # .github/scripts/prepare_release.sh — patch bump, release commit + tag
+corepack pnpm install     # Refresh pnpm-lock.yaml after manual edits to package.json
 ```
 
-`.ncurc.json` currently rejects `chai` and `eslint` major bumps — see [Technologies](TECHNOLOGIES.md) for why.
+`.ncurc.json` records the project's upgrade policy — see [Technologies](TECHNOLOGIES.md) for the rationale.
 
 ## Inspect npm package contents
 
 Before publishing, verify the tarball doesn't accidentally include source or test files:
 
 ```bash
-npm pack --dry-run
+corepack pnpm pack --dry-run
 ```
 
-Expected output: only `dist/`, `package.json`, `README.md`, and `LICENSE` are listed. If anything else appears, update `.npmignore`.
+Expected output: only `dist/`, `package.json`, `README.md`, and `LICENSE` are listed. The `files: ["dist"]` allowlist in `package.json` is the primary control — if anything else appears, tighten it (or add a `.npmignore` entry).
 
 ## Common workflows
 
@@ -100,55 +106,55 @@ Expected output: only `dist/`, `package.json`, `README.md`, and `LICENSE` are li
 2. Extend `Utils.validate.options` in `src/lib/utils.ts`
 3. Add the default to `Utils.getOptions`
 4. Use the option in `src/index.ts`
-5. Add a Mocha test in `test/main.test.ts`
+5. Add a Vitest spec in `test/main.test.ts`
 6. Update [API Reference](API_REFERENCE.md) and the README options table
-7. Run the full chain: `npm run eslint:fix && npm run prettier:fix && npm run build:tsc && npm run test && npm run build`
+7. Run the full chain: `pnpm run biome:fix && pnpm run build:tsc && pnpm run test && pnpm run build`
 
 The `/add-option` skill walks through this end-to-end — see [.agents/skills/add-option.md](../.agents/skills/add-option.md).
 
 ### Bump a dependency
 
-1. `npm run ncu:check` to see what's outdated
-2. `npm run ncu:upgrade` (or edit `package.json` for one specific package)
-3. `npm install` to refresh `package-lock.json`
+1. `pnpm run ncu:check` to see what's outdated
+2. `pnpm run ncu:upgrade` (or edit `package.json` for one specific package)
+3. `corepack pnpm install` to refresh `pnpm-lock.yaml`
 4. Run the full check chain
-5. Commit `package.json` **and** `package-lock.json` together
+5. Commit `package.json` **and** `pnpm-lock.yaml` together
 
 ### Reset a stuck environment
 
 ```bash
 rm -rf node_modules dist
-npm install
-npm run build:tsc        # Type-check
-npm run test             # Tests
+corepack pnpm install --frozen-lockfile
+pnpm run build:tsc       # Type-check
+pnpm run test            # Tests
 ```
 
-If the issue persists, also clear the npm cache:
+If the issue persists, also prune the pnpm store:
 
 ```bash
-npm cache clean --force
+corepack pnpm store prune
 ```
 
 ### Compare a local change against the published version
 
 ```bash
-npm view search-text-highlight version
-git diff v$(npm view search-text-highlight version) -- src/
+corepack pnpm view search-text-highlight version
+git diff v$(corepack pnpm view search-text-highlight version) -- src/
 ```
 
 ### Use the devcontainer aliases
 
-Inside the devcontainer (`docker exec -it searchtexthl bash`), `docker/custom_commands.sh` sources into your shell. Helpers map directly to this repo’s npm scripts:
+Inside the devcontainer (`docker exec -it searchtexthl bash`), `docker/custom_commands.sh` sources into your shell. Helpers map directly to this repo’s pnpm scripts (a bare `npm` is also routed to `corepack pnpm` inside the container):
 
 ```bash
 help                     # Welcome + command list
-install                  # → npm install
-check                    # → eslint:check, prettier:check (read-only)
-fix                      # → eslint:fix, prettier:fix
-typecheck                # → npm run build:tsc
-test                     # → npm run test
-build                    # → npm run build (webpack)
-codecheck                # Full chain: eslint + prettier + tsc + test + webpack (read-only)
+install                  # → corepack pnpm install
+check                    # → biome:check (read-only)
+fix                      # → biome:fix
+typecheck                # → pnpm run build:tsc
+test                     # → pnpm run test
+build                    # → pnpm run build (Vite + tsc declarations)
+codecheck                # Full chain: biome:check + build:tsc + test + build (read-only)
 claudex                  # Claude Code with skip-permissions
 codexx                   # OpenAI Codex with bypass-approvals
 cursorx                  # Cursor CLI agent with --force
@@ -158,16 +164,16 @@ cursorx                  # Cursor CLI agent with --force
 
 ## Useful flags
 
-| Flag                         | What it does                          | When to use                      |
-| ---------------------------- | ------------------------------------- | -------------------------------- |
-| `--silent` (npm)             | Suppress npm's own output noise       | Wrapping a command in CI logs    |
-| `mocha --reporter spec`      | Detailed test output (default)        | Local                            |
-| `mocha --reporter min`       | Single-line output                    | CI summary                       |
-| `mocha --bail`               | Stop on first failure                 | Long suites                      |
-| `mocha --grep "<text>"`      | Run only matching `it`s               | Targeted debugging               |
-| `webpack --mode development` | Skip minification, keep source maps   | Inspecting bundle output         |
-| `tsc --listFiles`            | Print every file the compiler touches | Tracing why a file won't compile |
-| `tsc --noEmit`               | Type-check without writing dist/      | Pre-commit gate                  |
+| Flag                       | What it does                          | When to use                      |
+| -------------------------- | ------------------------------------- | -------------------------------- |
+| `pnpm --silent`            | Suppress pnpm's own output noise      | Wrapping a command in CI logs    |
+| `vitest --reporter=verbose`| Detailed per-test output              | Local debugging                  |
+| `vitest --reporter=dot`    | Single-line output                    | CI summary                       |
+| `vitest --bail=1`          | Stop on first failure                 | Long suites                      |
+| `vitest run -t "<text>"`   | Run only matching tests by name       | Targeted debugging               |
+| `vite build --mode development` | Skip minification, keep readable output | Inspecting bundle output    |
+| `tsc --listFiles`          | Print every file the compiler touches | Tracing why a file won't compile |
+| `tsc -p tsconfig.build.json --noEmit` | Type-check without writing dist/ | Pre-commit gate           |
 
 ## CI invocations
 
@@ -176,11 +182,10 @@ The CI runs the same scripts you run locally — there's no CI-only command. See
 ## Pre-push checklist
 
 ```bash
-npm run eslint:check && \
-  npm run prettier:check && \
-  npm run build:tsc && \
-  npm run test && \
-  npm run build
+pnpm run biome:check && \
+  pnpm run build:tsc && \
+  pnpm run test && \
+  pnpm run build
 ```
 
-If all five pass, you can push. The `Code Check` workflow runs the equivalent on every PR.
+If all four pass, you can push. The `Code Check` workflow runs the equivalent on every PR.

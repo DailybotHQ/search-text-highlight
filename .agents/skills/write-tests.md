@@ -1,12 +1,12 @@
 ---
 name: write-tests
-description: Author Mocha + Chai tests for the current change in test/main.test.ts
+description: Author Vitest tests for the current change in test/*.test.ts
 type: skill
 ---
 
 # Skill: `/write-tests`
 
-Author Mocha + Chai tests for the change you just made (or are about to make). Tests live in `test/*.test.ts` and run via `ts-node` — no separate compile step.
+Author Vitest tests for the change you just made (or are about to make). Tests live in `test/*.test.ts` and run via Vitest (`vitest run`), which reuses the Vite pipeline — no separate compile step. Specs import test functions explicitly (no globals).
 
 ## When to use
 
@@ -26,28 +26,43 @@ Author Mocha + Chai tests for the change you just made (or are about to make). T
 
 ### 1. Locate or create the test file
 
-The current suite lives in `test/main.test.ts` covering `searchTextHL.highlight`. Decide:
+- `test/main.test.ts` — the suite covering `searchTextHL.highlight`
+- `test/exports.test.ts` — the dual-export contract (static source check + built-bundle smoke test); only touch this if you change how the public surface is exported
 
-- **New behavior on `highlight`** → add an `it(...)` inside the existing `describe('Test search text highlight', ...)`
-- **New method (`unhighlight`, etc.)** → add a new `describe(...)` block in the same file, or split into `test/<method>.test.ts` if the suite grows past ~30 `it`s
+Decide:
 
-Mocha discovers `test/**.ts` (the existing glob in `package.json`). New files don't need extra wiring.
+- **New behavior on `highlight`** → add an `it(...)` inside the existing `describe('Test search text highlight', ...)` in `test/main.test.ts`
+- **New method (`unhighlight`, etc.)** → add a new `describe(...)` block in `test/main.test.ts`, or split into `test/<method>.test.ts` if the suite grows past ~30 `it`s
 
-### 2. Pick the right Chai assertion
+Vitest discovers `test/**/*.test.ts` (the `include` glob in `vitest.config.ts`). New files matching that pattern need no extra wiring.
 
-| Goal                | Assertion                                      |
-| ------------------- | ---------------------------------------------- |
-| Equality            | `expect(result).to.be.equal(expected)`         |
-| Inequality          | `expect(result).to.not.equal(unexpected)`      |
-| Throws              | `expect(() => fn()).to.throw(Error)`           |
-| Throws with message | `expect(() => fn()).to.throw(/some pattern/i)` |
-| Truthy              | `expect(result).to.be.true`                    |
-| Contains            | `expect(result).to.include('substring')`       |
-| Length              | `expect(arr).to.have.lengthOf(3)`              |
+### 2. Import the test API explicitly
 
-The existing tests use `to.be.equal` for strings — keep that style. Don't introduce `should` syntax (mixing styles makes failure messages noisier).
+There are **no globals** — every spec imports what it uses from `vitest`:
 
-### 3. Write the test
+```ts
+import { describe, expect, it } from 'vitest'
+import searchTextHL from '../src/index'
+```
+
+### 3. Pick the right assertion
+
+Vitest's `expect` uses a Jest-style matcher API:
+
+| Goal                | Assertion                                         |
+| ------------------- | ------------------------------------------------- |
+| Equality (string/primitive) | `expect(result).toBe(expected)`           |
+| Deep equality (objects/arrays) | `expect(result).toEqual(expected)`     |
+| Inequality          | `expect(result).not.toBe(unexpected)`             |
+| Throws              | `expect(() => fn()).toThrow()`                    |
+| Throws with message | `expect(() => fn()).toThrow(/some pattern/i)`     |
+| Truthy              | `expect(result).toBe(true)`                       |
+| Contains substring  | `expect(result).toContain('substring')`           |
+| Length              | `expect(arr).toHaveLength(3)`                      |
+
+Use `toBe` for strings and primitives (the bulk of this library's assertions) and `toEqual` for structural comparison. Keep the style consistent across the suite.
+
+### 4. Write the test
 
 Follow the AAA structure (Arrange / Act / Assert):
 
@@ -61,7 +76,7 @@ it('should highlight emoji codepoints correctly', () => {
   const result = searchTextHL.highlight(text, query)
 
   // Assert
-  expect(result).to.be.equal('Cool <span class="text-highlight">😎</span> day')
+  expect(result).toBe('Cool <span class="text-highlight">😎</span> day')
 })
 ```
 
@@ -72,7 +87,7 @@ Rules:
 - No shared mutable state between tests — every `it` arranges its own inputs
 - Don't import from `dist/` — always `import searchTextHL from '../src/index'`
 
-### 4. Cover the matrix
+### 5. Cover the matrix
 
 For any change, write at least these tests:
 
@@ -86,41 +101,41 @@ If the change interacts with another option, add at least one combined test:
 ```ts
 it('should respect matchAll when caseSensitive is true', () => {
   const result = searchTextHL.highlight('Aa Aa', 'a', { matchAll: true, caseSensitive: true })
-  expect(result).to.be.equal('A<span class="text-highlight">a</span> A<span class="text-highlight">a</span>')
+  expect(result).toBe('A<span class="text-highlight">a</span> A<span class="text-highlight">a</span>')
 })
 ```
 
-### 5. Run the new tests
+### 6. Run the new tests
 
 ```bash
-npm run test
+corepack pnpm run test
 ```
 
-Or focus on the new `it` while iterating:
+Or focus on the new `it` while iterating (`-t` filters by test name, `vitest` without `run` watches):
 
 ```bash
-npx mocha --require ts-node/register test/main.test.ts --timeout 25000 --colors --grep "emoji codepoints"
+corepack pnpm exec vitest run test/main.test.ts -t "emoji codepoints"
 ```
 
 If the test passes immediately, ask: did the implementation already cover this case, or is the test asserting the same code path it tests? A passing-on-first-write test is suspicious. Ideally, write the test before the implementation and watch it fail first.
 
-### 6. Run the full suite
+### 7. Run the full suite
 
 ```bash
-npm run test
+corepack pnpm run test
 ```
 
-Make sure your new test didn't break any existing assertion. The current suite is fast — there's no excuse for skipping.
+Make sure your new test didn't break any existing assertion. The current suite is fast — there's no excuse for skipping. If you also changed the public export shape, run `corepack pnpm run build` first so `test/exports.test.ts` exercises the freshly built bundle (it skips the bundle smoke test when `dist/` is stale).
 
-### 7. Verify lint and format
+### 8. Verify lint and format
 
 ```bash
-npm run eslint:fix && npm run prettier:fix
+corepack pnpm run biome:fix
 ```
 
-Tests are linted and formatted like source.
+Tests are linted and formatted like source. Note `biome.json` allows `console` in `test/**` via an override, so debug logging in a spec won't fail the lint — but remove it before committing.
 
-### 8. Commit
+### 9. Commit
 
 ```bash
 git add test/main.test.ts
@@ -139,11 +154,11 @@ git commit -m "feat: add wholeWord option to highlight"
 ### 1. Testing implementation details
 
 ```ts
-// bad — asserts on internal call sequence
+// bad — asserts on internal call sequence with a spy
 it('calls Utils.validate.highlight once', () => {
-  const spy = sinon.spy(Utils.validate, 'highlight')
+  const spy = vi.spyOn(Utils.validate, 'highlight')
   searchTextHL.highlight('a', 'a')
-  expect(spy.calledOnce).to.be.true
+  expect(spy).toHaveBeenCalledOnce()
 })
 ```
 
@@ -153,10 +168,10 @@ This breaks on every refactor and doesn't catch real bugs. Test the contract.
 
 ```ts
 // bad — masks structural diffs
-expect(JSON.stringify(result)).to.equal(JSON.stringify(expected))
+expect(JSON.stringify(result)).toBe(JSON.stringify(expected))
 ```
 
-Use `to.deep.equal` for objects, `to.be.equal` for strings.
+Use `toEqual` for objects, `toBe` for strings.
 
 ### 3. Conditionally skipping based on environment
 
@@ -174,7 +189,7 @@ If a test is platform-specific, document the dependency. Otherwise, find the sou
 it('wraps the match', () => {
   const result = searchTextHL.highlight('hello', 'h')
   const expected = 'hello'.replace(/h/, '<span class="text-highlight">h</span>')
-  expect(result).to.equal(expected)
+  expect(result).toBe(expected)
 })
 ```
 
@@ -183,9 +198,9 @@ Hardcode the expected output instead.
 ## Common error patterns
 
 ```ts
-// Unknown type for the test input — use `as any` with eslint-disable
-let badInput: any = 42 // eslint-disable-line
-expect(() => searchTextHL.highlight(badInput, '')).to.throw(Error)
+// Unknown type for the test input — `any` is allowed (noExplicitAny is off in biome.json)
+const badInput: any = 42
+expect(() => searchTextHL.highlight(badInput, '')).toThrow()
 ```
 
 The existing tests use this idiom for invalid-type tests.
@@ -196,8 +211,9 @@ The existing tests use this idiom for invalid-type tests.
 - [ ] At least one override / non-default `it`
 - [ ] At least one validation throw test (if a new arg / option was added)
 - [ ] All `it` titles start with `should` and describe behavior
+- [ ] Test functions imported from `vitest` (no globals)
 - [ ] No shared mutable state between tests
 - [ ] `import searchTextHL from '../src/index'` (not from `dist/`)
-- [ ] `npm run test` passes
-- [ ] `npm run eslint:check` and `npm run prettier:check` pass
+- [ ] `corepack pnpm run test` passes
+- [ ] `corepack pnpm run biome:check` passes
 - [ ] Commit message uses `test:` prefix (or matches the implementation's prefix)

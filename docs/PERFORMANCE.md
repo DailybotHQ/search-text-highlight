@@ -30,10 +30,10 @@ The function is **synchronous** and **pure**. Don't introduce side effects, asyn
 
 ## Bundle size
 
-Zero runtime dependencies. The published `dist/index.js` (minified) is well under 2 KB. To check:
+Zero runtime dependencies. The published `dist/index.js` (esbuild-minified by Vite) is well under 2 KB. To check:
 
 ```bash
-npm run build
+pnpm run build
 ls -lh dist/
 gzip -c dist/index.js | wc -c     # gzipped size — what consumers actually pay for
 ```
@@ -63,7 +63,7 @@ for (let i = 0; i < 1000; i++) {
 console.timeEnd('highlight')
 ```
 
-Run with `npx ts-node tmp/bench.ts`. On a typical laptop, 1000 calls over a 120 KB string complete in ~50–100 ms.
+Run with `pnpm tsx tmp/bench.ts`. On a typical laptop, 1000 calls over a 120 KB string complete in ~50–100 ms.
 
 When you ship a perf-relevant change, paste before/after numbers in the PR description.
 
@@ -150,8 +150,8 @@ For finer-grained timing in the browser (when consumers profile), the `performan
 
 When a change touches the hot path:
 
-- [ ] `npm run test` passes
-- [ ] `npm run build` produces a bundle within size targets
+- [ ] `pnpm run test` passes
+- [ ] `pnpm run build` produces a bundle within size targets
 - [ ] Numbers from a representative input (small + medium + large) are in the PR description
 - [ ] If the regex changes, an adversarial-input test is added to `test/main.test.ts`
-- [ ] `npm pack --dry-run` shows the same files as before (no accidental new artifact)
+- [ ] `corepack pnpm pack --dry-run` shows the same files as before (no accidental new artifact)

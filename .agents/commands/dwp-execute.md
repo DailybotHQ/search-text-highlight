@@ -39,14 +39,14 @@ If the skill is not installed, see [`/dwp-create`](dwp-create.md) for installati
 
 Whenever a task touches the relevant area, the gate should include the matching repo command:
 
-| Area touched                                        | Gate command                                                                             |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `src/**`, `test/**`                                 | `npm run test`                                                                           |
-| Public types in `src/lib/type.ts`                   | `npm run build:tsc` + `npm run test`                                                     |
-| Build config (`webpack.config.js`, `tsconfig.json`) | `npm run build`                                                                          |
-| Lint / Prettier configs                             | `npm run eslint:check && npm run prettier:check`                                         |
-| Docs only                                           | Manual review against [`docs/DOCUMENTATION_GUIDE.md`](../../docs/DOCUMENTATION_GUIDE.md) |
-| Anything in `.github/workflows/`                    | Reproduce locally with the [`/ci-reproduce`](ci-reproduce.md) command before merge       |
+| Area touched                                          | Gate command                                                                             |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/**`, `test/**`                                   | `corepack pnpm run test`                                                                 |
+| Public types in `src/lib/type.ts`                     | `corepack pnpm run build:tsc` + `corepack pnpm run test`                                 |
+| Build config (`vite.config.ts`, `tsconfig*.json`)     | `corepack pnpm run build`                                                                |
+| Lint / format config (`biome.json`)                   | `corepack pnpm run biome:check`                                                          |
+| Docs only                                             | Manual review against [`docs/DOCUMENTATION_GUIDE.md`](../../docs/DOCUMENTATION_GUIDE.md) |
+| Anything in `.github/workflows/`                      | Reproduce locally with the [`/ci-reproduce`](ci-reproduce.md) command before merge       |
 
 ## On interruption
 
