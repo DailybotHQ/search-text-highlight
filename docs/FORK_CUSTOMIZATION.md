@@ -226,7 +226,7 @@ In GitHub repository **Settings → Branches → Branch protection rules**, prot
 
 ## Step 14 — `.ncurc.json` and the supply-chain guard
 
-`.ncurc.json` currently just enables upgrades (`{ "upgrade": true }`) — there are no package rejects left now that the toolchain moved to Vite, Vitest, and Biome. For a fresh fork you generally don't need to change it.
+`.ncurc.json` currently just enables upgrades (`{ "upgrade": true }`) — there are no package rejects. For a fresh fork you generally don't need to change it.
 
 The real safety net lives in `pnpm-workspace.yaml`:
 

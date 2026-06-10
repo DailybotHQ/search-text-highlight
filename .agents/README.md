@@ -24,8 +24,7 @@ This directory contains **skills** (slash-command procedures), **commands** (low
 │   ├── bump-deps.md
 │   ├── release.md
 │   ├── devcontainer-up.md
-│   ├── fork-rebrand.md
-│   └── toolchain-migration.md
+│   └── fork-rebrand.md
 ├── agents/                  # One Markdown file per specialized subagent (persona)
 │   ├── ts-architect.md
 │   ├── api-designer.md
@@ -65,7 +64,6 @@ Reusable procedures invoked by slash command (or `#` in non-Claude hosts).
 | `/release`         | Walk through the release workflow, verify prerequisites, and ship                        | [skills/release.md](skills/release.md)                 |
 | `/devcontainer-up` | Spin up the local Docker dev environment and verify it                                   | [skills/devcontainer-up.md](skills/devcontainer-up.md) |
 | `/fork-rebrand`    | Walk a fresh fork through name, npm scope, repo URL, license                             | [skills/fork-rebrand.md](skills/fork-rebrand.md)       |
-| `/toolchain-migration` | Playbook + gotchas for the Vite/Vitest/Biome/pnpm toolchain migration                | [skills/toolchain-migration.md](skills/toolchain-migration.md) |
 
 ### How to invoke
 

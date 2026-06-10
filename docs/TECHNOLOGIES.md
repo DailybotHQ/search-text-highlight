@@ -37,7 +37,7 @@ A complete inventory of every tool, plugin, and library shipped with this reposi
 | ---------------- | ------- | ------------------------------------------------------------------------------------------ |
 | `@biomejs/biome` | 2.4.16  | Linter **and** formatter in one tool — configured in `biome.json` at the repo root         |
 
-> Biome replaces the former ESLint + Prettier pair. Formatter settings: `quoteStyle: 'single'`, `semicolons: 'asNeeded'`, `trailingCommas: 'es5'`, `lineWidth: 120`, 2-space indent. Linter highlights: `noConsole: error` (off for `test/**`), `noExplicitAny: off`. See [Standards](STANDARDS.md) for the full rule set.
+> Biome is the project's single linter and formatter. Formatter settings: `quoteStyle: 'single'`, `semicolons: 'asNeeded'`, `trailingCommas: 'es5'`, `lineWidth: 120`, 2-space indent. Linter highlights: `noConsole: error` (off for `test/**`), `noExplicitAny: off`. See [Standards](STANDARDS.md) for the full rule set.
 
 ## Tests
 

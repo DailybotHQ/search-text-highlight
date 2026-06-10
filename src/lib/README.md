@@ -27,7 +27,7 @@ Every interface that crosses a module boundary lives here, never inlined in `ind
 2. Extend `Utils.validate.options` with a `typeof !== 'undefined' && typeof !== <expected>` guard.
 3. Extend `Utils.getOptions` with the default value.
 4. Wire it into the regex-building logic in `src/index.ts`.
-5. Add a Mocha test case in `test/main.test.ts`.
+5. Add a Vitest test case in `test/main.test.ts`.
 6. Update the option table in [README.md](../../README.md) and the surface docs in [`docs/API_REFERENCE.md`](../../docs/API_REFERENCE.md).
 
 See [`docs/STANDARDS.md`](../../docs/STANDARDS.md#types) and the `/add-option` skill in [`.agents/skills/add-option.md`](../../.agents/skills/add-option.md) for the full checklist.
@@ -50,7 +50,7 @@ All errors are plain `Error` instances thrown with a human-readable message in E
 
 - **No runtime dependencies.** Any helper added here must rely only on language built-ins. See [`docs/PERFORMANCE.md`](../../docs/PERFORMANCE.md) for the bundle-size rationale.
 - **Strict TypeScript.** `tsconfig.json` enables `strictNullChecks`, `noUnusedLocals`, `noUnusedParameters`, and `noImplicitAny`. Keep new code free of `any` (the `ObjectType` shim is the deliberate exception).
-- **No `console.*` calls.** ESLint enforces `no-console: error`; the library must remain silent at runtime.
+- **No `console.*` calls.** Biome enforces `noConsole: error`; the library must remain silent at runtime.
 - **English only.** Error messages, comments, and identifiers are English. See [`docs/STANDARDS.md`](../../docs/STANDARDS.md).
 
 ## Related documents

@@ -119,7 +119,7 @@ Publishing the same version twice fails — npm rejects duplicates. Bump the ver
 
 ## GitHub release
 
-After `npm publish` succeeds, the workflow creates a GitHub release using `ncipollo/release-action@v1`:
+After `corepack pnpm publish` succeeds, the workflow creates a GitHub release using `ncipollo/release-action@v1`:
 
 - **Tag:** matches the npm version (e.g., `v2.0.9`)
 - **Title:** `Release v<version>`

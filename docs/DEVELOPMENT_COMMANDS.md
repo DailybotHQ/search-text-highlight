@@ -49,7 +49,7 @@ Reports go to stdout. Vitest's default reporter is enough; add a JUnit/HTML repo
 
 ## Lint and format
 
-Biome is a single tool for both linting and formatting (it replaced ESLint + Prettier):
+Biome is a single tool for both linting and formatting:
 
 ```bash
 pnpm run biome:check        # Lint + format check (read-only) — what CI runs

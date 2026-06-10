@@ -25,7 +25,7 @@ Bump one or more dependencies in `package.json`, refresh `pnpm-lock.yaml`, and v
 
 - Package manager is **pnpm 11.1.2**, pinned via `"packageManager": "pnpm@11.1.2"` and provisioned by Corepack. Always invoke it as `corepack pnpm`.
 - The lockfile is **`pnpm-lock.yaml`** (commit it alongside `package.json`).
-- `.ncurc.json` is now just `{ "upgrade": true }` — there are no rejected packages. (Chai was removed in the Vitest migration, so the old `chai` / `@types/chai` rejects are gone.)
+- `.ncurc.json` is just `{ "upgrade": true }` — there are no rejected packages.
 - `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (7 days). pnpm will refuse to install any version published less than a week ago — a deliberate supply-chain quarantine. A bump to a freshly released version will fail to resolve until it ages out; that's expected, not a bug.
 
 For TypeScript, Vite, Vitest, and Biome bumps, check release notes for breaking changes before editing.

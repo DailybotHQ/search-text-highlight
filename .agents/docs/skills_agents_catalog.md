@@ -26,7 +26,6 @@ Procedural slash commands tuned for this library's TypeScript / pnpm workflow.
 | `/release`         | [skills/release.md](../skills/release.md)                 | Walk through the release workflow, verify prerequisites, ship                            |
 | `/devcontainer-up` | [skills/devcontainer-up.md](../skills/devcontainer-up.md) | Spin up the local Docker dev environment and verify it                                   |
 | `/fork-rebrand`    | [skills/fork-rebrand.md](../skills/fork-rebrand.md)       | Walk a fresh fork through name, npm scope, repo URL, license                             |
-| `/toolchain-migration` | [skills/toolchain-migration.md](../skills/toolchain-migration.md) | Playbook + gotchas for the Vite/Vitest/Biome/pnpm toolchain migration         |
 
 ## 2. Agents (subagents)
 

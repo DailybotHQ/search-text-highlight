@@ -31,11 +31,11 @@ function newestMtimeUnder(dir: string): number {
 
 // The built-bundle suite needs an up-to-date dist/index.js. Compute staleness up
 // front and skip the suite (with a hint) when dist/ is missing or older than src/,
-// so `npm test` / `test:watch` never fail spuriously before a build.
+// so `pnpm test` / `test:watch` never fail spuriously before a build.
 function bundleSkipReason(): string | null {
-  if (!existsSync(distPath)) return 'dist/index.js not built — run `npm run build`'
+  if (!existsSync(distPath)) return 'dist/index.js not built — run `pnpm run build`'
   if (statSync(distPath).mtimeMs < newestMtimeUnder(resolve(repoRoot, 'src'))) {
-    return 'dist/index.js is older than src/ — run `npm run build`'
+    return 'dist/index.js is older than src/ — run `pnpm run build`'
   }
   return null
 }

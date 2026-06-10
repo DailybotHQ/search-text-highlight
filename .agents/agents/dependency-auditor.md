@@ -90,7 +90,7 @@ The auto-merge workflow merges on green Code Check. If you have concerns that do
 
 ### `.ncurc.json` policy
 
-`.ncurc.json` is currently `{ "upgrade": true }` — there are no per-package rejects. (The old `chai` / `@types/chai` reject was removed when the test stack migrated from Mocha + Chai to Vitest; Chai is no longer a dependency.)
+`.ncurc.json` is currently `{ "upgrade": true }` — there are no per-package rejects.
 
 If a future dependency needs to be held back from upgrades, add a `reject` entry here with a one-line rationale in the commit message, and remove it once the blocker clears.
 

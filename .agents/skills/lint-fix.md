@@ -17,7 +17,7 @@ Apply Biome auto-fixes (lint + format in one pass), then handle anything that au
 
 ## Inputs to confirm
 
-Usually nothing — this is a one-shot procedure. Biome handles both linting and formatting, so there's no separate ESLint / Prettier step to choose between.
+Usually nothing — this is a one-shot procedure. Biome handles both linting and formatting in a single step.
 
 ## Procedure
 

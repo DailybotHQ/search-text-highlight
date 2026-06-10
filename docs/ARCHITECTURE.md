@@ -50,7 +50,7 @@ search-text-highlight/
 ├── tsconfig.build.json               # Build config — scopes declaration emit to src/
 ├── vite.config.ts                     # Library-mode bundling (CommonJS, esbuild minify)
 ├── vitest.config.ts                   # Test runner config (Node env, test/**/*.test.ts)
-├── biome.json                         # Biome lint + format config (replaces ESLint + Prettier)
+├── biome.json                         # Biome lint + format config (single quotes, no semis)
 ├── .editorconfig                      # 2-space indent, LF, UTF-8
 ├── .ncurc.json                        # npm-check-updates policy
 ├── .npmignore                         # Belt-and-suspenders alongside the `files` allowlist

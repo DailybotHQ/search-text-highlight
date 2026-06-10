@@ -108,7 +108,7 @@ Steps:
 Steps:
 
 1. Check the file exists at the imported path: `ls src/lib/type.ts`
-2. Vite resolves `.ts` extensions natively — you don't configure an extensions list as with webpack. If the import has an explicit extension that's wrong (e.g., `./lib/type.js`), drop or correct it
+2. Vite resolves `.ts` extensions natively — you don't configure an extensions list. If the import has an explicit extension that's wrong (e.g., `./lib/type.js`), drop or correct it
 3. Check `tsconfig.build.json` `include`/`exclude` covers the file (it includes `src/**`, excludes `test`)
 4. If the file exists but the path is wrong, fix the import — don't suppress with `// @ts-ignore`
 
