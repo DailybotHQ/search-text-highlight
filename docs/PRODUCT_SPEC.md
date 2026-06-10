@@ -80,8 +80,8 @@ A release is considered successful when:
 
 1. The npm package installs cleanly on Node 24 with no peer-dependency warnings.
 2. `searchTextHL.highlight(...)` produces the documented output for every example in [README.md](../README.md).
-3. The complete Mocha suite passes (`npm run test`).
-4. The Webpack production bundle (`dist/index.js` + `dist/index.d.ts`) is smaller than 10 KB and contains zero third-party code.
+3. The complete Vitest suite passes (`corepack pnpm run test`).
+4. The Vite production bundle (`dist/index.js` + `dist/index.d.ts`) is smaller than 10 KB and contains zero third-party code.
 5. No new top-level export and no signature change have been introduced without a major version bump and a `CHANGELOG.md` migration note.
 
 ## Ownership and lifecycle

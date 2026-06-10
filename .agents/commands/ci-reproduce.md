@@ -39,30 +39,30 @@ Each workflow's job list is in [`docs/CI_CD.md`](../../docs/CI_CD.md). The most 
 
 | Workflow                      | Likely failed step                                                |
 | ----------------------------- | ----------------------------------------------------------------- |
-| `code_check.yml`              | Lint, format, or test                                             |
+| `code_check.yml`              | Lint/format (Biome) or test (Vitest)                              |
 | `release_and_publish.yml`     | Build, release, or publish (last is rare — usually a token issue) |
-| `check_packages_versions.yml` | `npm run ncu:upgrade` produced no diff (no-op) or PR conflict     |
+| `check_packages_versions.yml` | `corepack pnpm run ncu:upgrade` produced no diff (no-op) or PR conflict |
 
 ### 2. Match the step to a local command
 
-| CI step name                           | Local command                                                |
-| -------------------------------------- | ------------------------------------------------------------ |
-| `Step 1 - 🧪 Run eslint linter`        | `npm run eslint:check`                                       |
-| `Step 2 - 🧪🧪 Run prettier`           | `npm run prettier:check`                                     |
-| `Step 1 - 🧪 Run tests`                | `npm run test`                                               |
-| `Step 2 - 🛠️ Build application bundle` | `npm run build`                                              |
-| `Step 4 - 🔄 Prepare release`          | `npm run release` (this bumps the version!)                  |
-| `Step 7 - 🚀🚀 Publish npm package`    | `npm publish` (don't actually run; use `npm pack --dry-run`) |
+| CI step name                           | Local command                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------- |
+| `Step 1 - 🧪 Run Biome check`          | `corepack pnpm run biome:check`                                            |
+| `Step 1 - 🧪 Run tests`                | `corepack pnpm run test`                                                   |
+| `Step 2 - 🛠️ Build application bundle` | `corepack pnpm run build`                                                  |
+| `Step 4 - 🔄 Prepare release`          | `corepack pnpm run release` (runs `prepare_release.sh` — bumps the version!) |
+| `Step 7 - 🚀🚀 Publish npm package`    | `corepack pnpm publish --no-git-checks` (don't actually run; use `corepack pnpm pack --dry-run`) |
 
 ### 3. Match the environment
 
-CI runs on `ubuntu-latest` with Node 24.15.0. To match exactly, use the devcontainer (`/devcontainer-up`).
+CI runs on `ubuntu-latest` with Node from `.node-version` (24.16.0) and pnpm provisioned by Corepack (`pnpm@11.1.2`, pinned via the `packageManager` field). To match exactly, use the devcontainer (`/devcontainer-up`).
 
-If you're already on a Linux machine with Node 24:
+If you're already on a Linux machine:
 
 ```bash
-node --version       # Should be 24.15.0
-nvm use 24.15.0      # If using nvm
+node --version            # Should be 24.16.0 (the repo dev version; engines requires >=22)
+corepack enable           # Ensure Corepack is on
+corepack pnpm --version   # Should be 11.1.2
 ```
 
 Otherwise, jump into the devcontainer:
@@ -78,25 +78,26 @@ Sometimes the difference between local-pass and CI-fail is stale `node_modules`:
 
 ```bash
 rm -rf node_modules dist
-npm install
+corepack pnpm install --frozen-lockfile
 ```
 
-Don't delete `package-lock.json` — CI uses the same lockfile, so deleting it locally would test a different dep tree.
+`--frozen-lockfile` mirrors CI exactly — it installs only what `pnpm-lock.yaml` pins. Don't delete `pnpm-lock.yaml`; CI uses the same lockfile, so deleting it locally would test a different dep tree.
 
 ### 5. Re-run the failing step
 
 Run the local command from step 2. If it passes locally but failed in CI, the difference is environmental:
 
 - **Node version** — `node --version`
+- **pnpm version** — `corepack pnpm --version` (must match the pinned `pnpm@11.1.2`)
 - **OS** — Linux vs your local OS
-- **Git LFS / submodules** — none today, but check
 - **Environment variables** — CI sets `CI=true`; some tools change behavior under it
 - **Locale / timezone** — CI is UTC, en-US
+- **Quarantine** — `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080`; a just-published dependency may resolve differently between two installs run a week apart
 
 Try with `CI=true`:
 
 ```bash
-CI=true npm run test
+CI=true corepack pnpm run test
 ```
 
 ### 6. Capture the failure
@@ -111,7 +112,7 @@ If the local re-run reproduces:
 If the local re-run **doesn't** reproduce:
 
 - Check the GitHub Actions runner specs (the YAML's `runs-on`)
-- Compare your local Node / npm versions
+- Compare your local Node / pnpm versions
 - Check timestamp-sensitive tests (none today, but be alert)
 - Try the devcontainer (closer to CI than your host)
 - Re-run the CI workflow with debug logs:
@@ -127,23 +128,23 @@ This emits more verbose logs for the next attempt.
 #### `Code Check` lint failure
 
 ```bash
-npm run eslint:check       # See the exact error
+corepack pnpm run biome:check       # See the exact error
 # Fix or run /lint-fix
 ```
 
 #### `Code Check` test failure
 
 ```bash
-npm run test               # Full suite
-# If only one test fails, focus:
-npx mocha --require ts-node/register test/main.test.ts --grep "<failing test name>"
+corepack pnpm run test              # Full suite
+# If only one test fails, focus on a single file or test name:
+corepack pnpm exec vitest run test/main.test.ts -t "<failing test name>"
 ```
 
 #### `Release and Publish` build failure
 
 ```bash
 rm -rf dist
-npm run build              # Production bundle
+corepack pnpm run build             # vite build + declaration emit
 # Then check the output:
 ls -lh dist/
 node -e "console.log(require('./dist/index').highlight('test', 'e'))"
@@ -151,11 +152,11 @@ node -e "console.log(require('./dist/index').highlight('test', 'e'))"
 
 #### `Release and Publish` publish failure
 
-This is rare — usually a token expiry. Don't run `npm publish` locally; instead:
+This is rare — usually a token expiry. Don't run the publish locally; instead:
 
 ```bash
-npm pack --dry-run         # Verify the artifact would be valid
-gh secret list             # Verify NPM_TOKEN is set
+corepack pnpm pack --dry-run        # Verify the artifact would be valid
+gh secret list                      # Verify NPM_TOKEN is set
 ```
 
 If `NPM_TOKEN` is missing or stale, rotate it (see [`/release`](../skills/release.md)).
@@ -171,7 +172,7 @@ gh run rerun <run-id>
 
 #### `Check Packages Versions` no-op
 
-The workflow opened a PR with no changes (everything was already up to date). Either:
+The workflow opened a PR with no changes (everything was already up to date, or new versions are still inside the `minimumReleaseAge` quarantine window). Either:
 
 - Close the PR (it'll be regenerated next Tuesday if needed)
 - Add a meaningful change to the branch and push
@@ -189,15 +190,15 @@ The `--exit-status` flag waits for the run to complete and exits non-zero on fai
 
 ## Don't
 
-- Run `npm publish` locally to "test the publish step" — that publishes for real
-- Run `npm run release` locally — it bumps the version and creates a tag
+- Run the npm publish locally to "test the publish step" — that publishes for real
+- Run `corepack pnpm run release` locally — it runs `prepare_release.sh`, which bumps the version and creates a tag
 - Bypass branch protection to push directly to `main`
 - Push the same commit repeatedly hoping CI passes
 
 ## Do
 
-- Match the CI environment as closely as possible (Node version, OS, devcontainer)
-- Reset local state (`rm -rf node_modules`) before declaring "I can't reproduce"
+- Match the CI environment as closely as possible (Node version, pnpm version, OS, devcontainer)
+- Reset local state (`rm -rf node_modules` + `corepack pnpm install --frozen-lockfile`) before declaring "I can't reproduce"
 - Read the full CI log, not just the last error line
 - Use `gh run view --log-failed` to focus on the broken step
 

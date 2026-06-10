@@ -1,4 +1,4 @@
-import { OptionsType, UtilsType } from './type'
+import type { OptionsType, UtilsType } from './type'
 
 const Utils: UtilsType = {
   validate: {

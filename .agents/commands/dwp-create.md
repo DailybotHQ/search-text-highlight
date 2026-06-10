@@ -45,7 +45,7 @@ git clone https://github.com/DailybotHQ/deepworkplan-skill.git ~/.local/share/de
 ## Repo-specific reminders
 
 - This is a **library** — most plans should be small (1-4 tasks) unless touching the build pipeline or the public API.
-- Every task that modifies `src/` must include a validation gate that runs `npm run test`.
+- Every task that modifies `src/` must include a validation gate that runs `corepack pnpm run test`.
 - Public-surface changes (`OptionsType`, `highlight` signature) must include a gate that bumps `MAJOR` in `package.json`.
 
 ## See also

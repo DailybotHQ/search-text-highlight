@@ -1,6 +1,7 @@
 {
   "name": "search-text-highlight",
-  "version": "2.1.4",
+  "version": "3.0.0",
+  "packageManager": "pnpm@11.1.2",
   "description": "This tool allow find a string or substring from a text and highlight it with html wrapper with unicode support.",
   "keywords": [
     "search",
@@ -12,19 +13,22 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "eslint:check": "eslint .",
-    "eslint:fix": "eslint . --fix",
-    "prettier:check": "prettier -c --ignore-path .gitignore '**/*.{css,html,js,ts,json,md,yaml,yml}' '!package.json'",
-    "prettier:fix": "prettier --write --ignore-path .gitignore '**/*.{css,html,js,ts,json,md,yaml,yml}' '!package.json'",
-    "test": "mocha --require ts-node/register test/**.ts --timeout 25000 --colors",
-    "test:watch": "mocha -w --watch-extensions ts --require ts-node/register --watch-files src,test test/**.ts --timeout 25000 --colors",
-    "release": "npm version patch -m \"[🤖 DailyBot] New release to v%s launched 🚀\"",
+    "biome:check": "biome check",
+    "biome:fix": "biome check --write",
+    "biome:fix:unsafe": "biome check --write --unsafe",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "release": "bash .github/scripts/prepare_release.sh",
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts",
-    "build": "webpack --mode production --progress",
-    "build:dev": "webpack --mode development --progress",
-    "build:tsc": "tsc --build tsconfig.json",
+    "dev": "nodemon --exec tsx src/index.ts",
+    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "build:dev": "vite build --mode development",
+    "build:types": "tsc -p tsconfig.build.json --emitDeclarationOnly",
+    "build:tsc": "tsc -p tsconfig.build.json --noEmit",
     "ncu:check": "ncu",
     "ncu:upgrade": "ncu -u"
   },
@@ -40,27 +44,17 @@
   "homepage": "https://github.com/DailyBotHQ/search-text-highlight#readme",
   "dependencies": {},
   "devDependencies": {
-    "@eslint/js": "10.0.1",
-    "@types/chai": "4.3.20",
-    "@types/mocha": "10.0.10",
+    "@biomejs/biome": "2.4.16",
     "@types/node": "25.7.0",
-    "chai": "4.5.0",
-    "clean-webpack-plugin": "4.0.0",
-    "eslint": "10.3.0",
-    "eslint-config-prettier": "10.1.8",
-    "eslint-plugin-prettier": "5.5.5",
-    "eslint-webpack-plugin": "6.0.0",
-    "mocha": "11.7.5",
+    "esbuild": "0.28.0",
     "nodemon": "3.1.14",
     "npm-check-updates": "22.2.0",
-    "ts-loader": "9.5.7",
-    "ts-node": "10.9.2",
+    "tsx": "4.22.4",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.59.3",
-    "webpack": "5.106.2",
-    "webpack-cli": "7.0.2"
+    "vite": "8.0.16",
+    "vitest": "4.1.8"
   },
   "engines": {
-    "node": "24.15.0"
+    "node": ">=22.0.0"
   }
 }

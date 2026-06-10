@@ -10,15 +10,15 @@ These commands are tuned for `search-text-highlight`. They live in [`.agents/ski
 | ------------------ | ------- | --------------------------------------------------------------------------------------- |
 | `/add-option`      | skill   | Add a new option to `OptionsType` end-to-end (types, validators, defaults, tests, docs) |
 | `/add-feature`     | skill   | Add a new method to `searchTextHL` — major version bump                                 |
-| `/write-tests`     | skill   | Author Mocha + Chai tests for the current change                                        |
-| `/fix-build`       | skill   | Diagnose and repair a failing webpack / tsc build                                       |
-| `/lint-fix`        | skill   | Run ESLint + Prettier with `--fix`                                                      |
+| `/write-tests`     | skill   | Author Vitest tests for the current change                                              |
+| `/fix-build`       | skill   | Diagnose and repair a failing Vite / tsc build                                          |
+| `/lint-fix`        | skill   | Run Biome with `--write`                                                                |
 | `/bump-deps`       | skill   | Update `package.json` safely; respects `.ncurc.json`                                    |
 | `/release`         | skill   | Run the release workflow and verify prerequisites                                       |
 | `/devcontainer-up` | skill   | Spin up the local Docker dev environment                                                |
 | `/fork-rebrand`    | skill   | Walk a fresh fork through name, npm scope, repo URL, license                            |
 | `/verify`          | command | Run the full pre-push check chain                                                       |
-| `/pack-check`      | command | Inspect what `npm pack` would publish                                                   |
+| `/pack-check`      | command | Inspect what `pnpm pack` would publish                                                  |
 | `/ci-reproduce`    | command | Reproduce a failing CI workflow step locally                                            |
 | `/reset-env`       | command | Clear `node_modules` + caches and reinstall                                             |
 

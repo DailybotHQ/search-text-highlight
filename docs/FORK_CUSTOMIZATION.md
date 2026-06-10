@@ -13,7 +13,7 @@ The placeholders to replace, in summary:
 | Docker container name         | `searchtexthl`                                  | `text-marker`                            |
 | Docker compose project        | `searchtexthllocal`                             | `textmarkerlocal`                        |
 | Docker service name           | `searchtexthlvscode`                            | `textmarkervscode`                       |
-| Welcome banner title          | "Search Text Highlight Development Container"   | "Acme Text Marker Development Container" |
+| Welcome banner title          | "search-text-highlight — development container" | "acme-text-marker — development container" |
 | DailyBot notification channel | `vars.DAILYBOT_DEPLOYMENT_NOTIFICATION_CHANNEL` | Set or remove (see Step 12)              |
 | Author / maintainer           | `DailyBot <support@dailybot.com>`               | Your team                                |
 
@@ -61,7 +61,7 @@ Rename in:
 After the rename, run the full check chain:
 
 ```bash
-npm run eslint:fix && npm run prettier:fix && npm run build:tsc && npm run test && npm run build
+corepack pnpm run biome:fix && corepack pnpm run build:tsc && corepack pnpm run test && corepack pnpm run build
 ```
 
 > **Warning:** if your package has existing users, renaming the public object is a breaking change. Consider keeping `searchTextHL` as an alias for one major version, then dropping it.
@@ -109,17 +109,16 @@ Edit `.devcontainer_example/devcontainer.json` to:
 
 If you copied it to `.devcontainer/devcontainer.json` for VS Code, redo that copy.
 
-## Step 6 — npm scripts
+## Step 6 — pnpm scripts and package manager
 
-Most scripts in `package.json` are generic. The ones that mention the project name in the body:
+Most scripts in `package.json` are generic. The fork-specific touch points:
 
-- `release` — the commit message template `"[🤖 DailyBot] New release to v%s launched 🚀"`. Either keep the bot name or change to your team's:
+- `"packageManager": "pnpm@11.1.2"` — keep this (Corepack reads it to install the exact pnpm). Bump it only when you deliberately upgrade pnpm.
+- `release` — runs `bash .github/scripts/prepare_release.sh`. The commit message template lives in that script (`"[🤖 DailyBot] New release to v%s launched 🚀"`). Either keep the bot name or change it to your team's, e.g. `"[🤖 Acme Bot] New release to v%s launched 🚀"`.
 
-```json
-"release": "npm version patch -m \"[🤖 Acme Bot] New release to v%s launched 🚀\""
-```
+The release notification workflows depend on the commit format matching what `.github/scripts/get_github_release_log.sh` expects. If you change the template, scan both release scripts for hardcoded patterns.
 
-The release notification workflows depend on whatever value is here matching the commit format expected by `.github/scripts/get_github_release_log.sh`. If you change the template, scan that script for hardcoded patterns.
+The build/test/lint scripts (`vite build`, `tsc -p tsconfig.build.json`, `vitest`, `biome check`) are generic — they don't mention the project name and need no rebrand.
 
 ## Step 7 — GitHub Actions
 
@@ -160,7 +159,7 @@ The README is the public face of the package. Rewrite:
 - **Options table** — copy from `docs/API_REFERENCE.md` (treat that as the master)
 - **Powered by** — your branding or remove the section
 
-Run `npm run prettier:fix` after editing.
+Run `corepack pnpm run biome:fix` after editing.
 
 ## Step 9 — License
 
@@ -170,7 +169,7 @@ The repo ships under MIT (`LICENSE`). Decide:
 - **Switch to another OSS license** — replace the file; update `package.json`'s `license` field
 - **Proprietary** — delete `LICENSE`, set `package.json` `license` to `"UNLICENSED"`, add a notice in the README
 
-The Docker base image (`node:24.15.0-trixie-slim`) and dev-time AI CLIs (Claude / Codex / Cursor) carry their own licenses unaffected by this choice.
+The Docker base image (`node:24.16.0-trixie-slim`) and dev-time AI CLIs (Claude / Codex / Cursor) carry their own licenses unaffected by this choice.
 
 ## Step 10 — `AGENTS.md` and docs
 
@@ -187,7 +186,7 @@ Replace per the table at the top of this guide. The structure of every doc stays
 Verify only the right files publish:
 
 ```bash
-npm pack --dry-run
+corepack pnpm pack --dry-run
 ```
 
 Expected:
@@ -196,9 +195,9 @@ Expected:
 - `package/README.md`
 - `package/LICENSE`
 - `package/dist/index.js`
-- `package/dist/index.d.ts`
+- `package/dist/index.d.ts` (plus `package/dist/lib/*.d.ts`)
 
-Anything else (test files, source TS, docs, `.github/`, `docker/`) means you need a `.npmignore` entry.
+Anything else (test files, source TS, docs, `.github/`, `docker/`) means you need a `.npmignore` entry or a tighter `files` field in `package.json`.
 
 ## Step 12 — npm scope and 2FA
 
@@ -225,28 +224,30 @@ In GitHub repository **Settings → Branches → Branch protection rules**, prot
 - ✅ Require branches to be up to date before merging
 - ❌ Don't require signed commits unless you have CI signing set up — the release workflow's commits would fail
 
-## Step 14 — `.ncurc.json`
+## Step 14 — `.ncurc.json` and the supply-chain guard
 
-The current rejects (`chai`, `eslint`) reflect this repo's migration debt. For a fresh fork, you may want to:
+`.ncurc.json` currently just enables upgrades (`{ "upgrade": true }`) — there are no package rejects. For a fresh fork you generally don't need to change it.
 
-- Re-enable `eslint` upgrades and migrate to flat config (a one-time effort)
-- Re-enable `chai` upgrades and switch to ESM (or `chai@4` stays fine; v5 is intentionally avoided)
+The real safety net lives in `pnpm-workspace.yaml`:
 
-If you keep the rejects, document why in the file.
+- `minimumReleaseAge: 10080` — only install package versions published at least a week ago (protects against compromised packages that get yanked or patched within days)
+- `allowBuilds: { esbuild: true }` — the curated allow-list of dependency install scripts pnpm is permitted to run
+
+Keep both unless you have a specific reason to relax them, and document any change. See the [supply-chain rationale](https://xergioalex.com/blog/supply-chain-attacks-ai-era/).
 
 ## Step 15 — Sanity check
 
 ```bash
-npm install
-npm run eslint:check
-npm run prettier:check
-npm run build:tsc
-npm run test
-npm run build
-npm pack --dry-run
+corepack enable
+corepack pnpm install --frozen-lockfile
+corepack pnpm run biome:check
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
+corepack pnpm pack --dry-run
 ```
 
-All five commands must succeed. The dry-run should list only the publishable files.
+All check commands must succeed. The dry-run should list only the publishable files.
 
 ## Step 16 — First commit
 
@@ -268,8 +269,8 @@ gh run list --workflow=code_check.yml      # Should show a run on main (or the P
 The first publish has to be manual (CI publishes patches on merge to `main`, but it doesn't initialize the package). One time only:
 
 ```bash
-npm pack --dry-run        # Verify
-npm publish --access public
+corepack pnpm pack --dry-run    # Verify
+corepack pnpm publish --access public
 ```
 
 After this, the release workflow takes over for every merge.
@@ -283,11 +284,11 @@ After this, the release workflow takes over for every merge.
 - [ ] GitHub Actions: bot identity, notification channels, secrets configured
 - [ ] README rewritten with the new product name and install command
 - [ ] License chosen (MIT default, copyright holder updated)
-- [ ] `npm pack --dry-run` shows only the publishable files
-- [ ] All five sanity-check commands pass
+- [ ] `corepack pnpm pack --dry-run` shows only the publishable files
+- [ ] All sanity-check commands pass
 - [ ] Branch protection set on `main`
 - [ ] `NPM_TOKEN`, `AUTOMATION_GITHUB_TOKEN` secrets configured
-- [ ] First manual `npm publish --access public` succeeded
+- [ ] First manual `corepack pnpm publish --access public` succeeded
 - [ ] Subsequent merges auto-publish via the release workflow
 
 ## When something goes wrong
@@ -295,7 +296,7 @@ After this, the release workflow takes over for every merge.
 - **`npm publish` fails with `403 Forbidden`** — your npm account doesn't have access to the scope (`@acme`). Run `npm whoami` and verify; create the org on npm if it doesn't exist
 - **CI's npm publish step fails** — the `NPM_TOKEN` secret is missing or expired. Rotate the token
 - **GitHub Action can't push tags** — `AUTOMATION_GITHUB_TOKEN` doesn't have `repo` scope. Generate a new PAT
-- **`Code Check` is red on the rebrand commit** — Prettier rewrote some quotes in your README; run `npm run prettier:fix` and re-commit
+- **`Code Check` is red on the rebrand commit** — Biome rewrote some quotes/formatting; run `corepack pnpm run biome:fix` and re-commit
 - **The DailyBot notification step fails with `401`** — your fork hasn't set `DAILYBOT_API_KEY`. Either set it or remove the notification steps
 
 ## After you're done
@@ -303,6 +304,6 @@ After this, the release workflow takes over for every merge.
 Once the rebrand is solid, audit the docs:
 
 - Remove sections in `docs/` referencing tooling you don't use
-- Remove `.ncurc.json` rejects you've migrated past
+- Re-check `pnpm-workspace.yaml`'s `allowBuilds` allow-list against your dependency set
 - Refresh `docs/TECHNOLOGIES.md` to reflect any deps you swapped
 - Update `AGENTS.md` "Project Overview" with the new product description

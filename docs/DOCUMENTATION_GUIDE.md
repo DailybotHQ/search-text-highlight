@@ -12,7 +12,7 @@ When and how to update the docs in this repo. The goal is to keep `AGENTS.md` an
 | `docs/ARCHITECTURE.md`         | Module layout, build pipeline, data flow                                             | New file under `src/`, new build step, new data path through the function |
 | `docs/TECHNOLOGIES.md`         | Stack with versions and roles                                                        | A dependency added/removed/bumped (major)                                 |
 | `docs/STANDARDS.md`            | Coding rules                                                                         | A convention is decided or changes                                        |
-| `docs/DEVELOPMENT_COMMANDS.md` | npm script reference                                                                 | A new script wired or a workflow changes                                  |
+| `docs/DEVELOPMENT_COMMANDS.md` | pnpm script reference                                                                | A new script wired or a workflow changes                                  |
 | `docs/TESTING_GUIDE.md`        | Test framework, conventions                                                          | Test framework changes, new test layer added                              |
 | `docs/API_REFERENCE.md`        | Public surface (`highlight`, `OptionsType`)                                          | Any public-API change                                                     |
 | `docs/BUILD_DEPLOY.md`         | npm publish + GitHub release pipeline                                                | Build step or release process changes                                     |
@@ -34,12 +34,12 @@ When and how to update the docs in this repo. The goal is to keep `AGENTS.md` an
 
 - A new option in `OptionsType` (must touch `STANDARDS.md` rules table, `API_REFERENCE.md`, `README.md` table, and a test)
 - A new public method on `searchTextHL` (rare; major bump)
-- A new npm script or modified script body
-- Any change to the build pipeline (`webpack.config.js`, `tsconfig.json`)
+- A new pnpm script or modified script body
+- Any change to the build pipeline (`vite.config.ts`, `tsconfig.build.json`, `tsconfig.json`)
 - A new dependency (or removed one)
 - A change to a CI workflow
 - A change to the docker setup
-- An adopted convention (e.g., "we use Mocha 11 from now on")
+- An adopted convention (e.g., "we use Vitest from now on")
 - A new agent skill or subagent
 
 ### Often require a doc update
@@ -61,14 +61,14 @@ When and how to update the docs in this repo. The goal is to keep `AGENTS.md` an
 2. **Show one canonical example.** A code snippet that's the answer, not three options
 3. **Explain _why_ when it's non-obvious.** "We don't escape `query` because tests rely on regex syntax"
 4. **Cross-link.** Mentioning a topic? Link to the dedicated doc instead of duplicating content. Repetition leads to drift
-5. **Date-tag exceptions.** "Until ESLint 9 migration ships, `.ncurc.json` rejects ESLint upgrades" — easy to clean up later
+5. **Date-tag exceptions.** "Until a newer base image ships, pin Node in the Dockerfile" — easy to clean up later
 6. **Keep the file under 500 lines.** Past that, split
 
 ## Cross-linking
 
 Every doc that mentions something covered in detail elsewhere should link to it. Examples:
 
-- `AGENTS.md` mentions Mocha → links to `docs/TESTING_GUIDE.md`
+- `AGENTS.md` mentions Vitest → links to `docs/TESTING_GUIDE.md`
 - `ARCHITECTURE.md` mentions a dependency → links to `TECHNOLOGIES.md`
 - A skill in `.agents/skills/` references rules from `STANDARDS.md`
 
@@ -85,7 +85,7 @@ Each fact lives in **one** file. If you find yourself copying a paragraph, repla
 Examples of "owned by":
 
 - Coding conventions → `docs/STANDARDS.md`
-- npm command reference → `docs/DEVELOPMENT_COMMANDS.md`
+- pnpm command reference → `docs/DEVELOPMENT_COMMANDS.md`
 - Stack versions → `docs/TECHNOLOGIES.md` (and pinned in `package.json`)
 - Validation rules → `docs/STANDARDS.md` + extended example in `docs/ARCHITECTURE.md`
 - Public surface contract → `docs/API_REFERENCE.md` (and the README's options tables, which mirror it)

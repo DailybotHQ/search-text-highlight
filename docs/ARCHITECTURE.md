@@ -20,10 +20,10 @@ This document explains the **big picture** of `search-text-highlight` so a new c
    • Utils.getOptions   (fills defaults)            • UtilsType
                                                     • ObjectType, Class<T>
 
-                                     │ compiled by webpack + ts-loader
+                                     │ bundled by Vite (esbuild minify)
                                      ▼
-                              dist/index.js   (CommonJS bundle, libraryTarget commonjs2)
-                              dist/index.d.ts (TypeScript declaration, from `tsc --build`)
+                              dist/index.js   (CommonJS bundle, lib mode formats: ['cjs'])
+                              dist/index.d.ts (TypeScript declaration, from `tsc -p tsconfig.build.json`)
                                      │ published as npm tarball
                                      ▼
                               consumers:
@@ -42,16 +42,18 @@ search-text-highlight/
 ├── CLAUDE.md → AGENTS.md              # Symlink (do not edit directly)
 ├── README.md                          # Public-facing intro + usage
 ├── LICENSE                            # MIT
-├── package.json                       # Scripts, deps, npm metadata, `engines` lock
-├── package-lock.json                  # Pinned dependency tree (commit alongside package.json)
-├── tsconfig.json                      # Strict TS config; emits to dist/
-├── webpack.config.js                  # Production bundling (CommonJS, ts-loader)
-├── .babelrc                           # @babel/preset-env (kept for downstream interop)
-├── eslint.config.mjs                  # ESLint flat config + ignore globs
-├── .prettierrc                        # Prettier config (no semis, single quotes)
+├── package.json                       # Scripts, deps, npm metadata, `engines`, `packageManager`
+├── pnpm-lock.yaml                     # Pinned dependency tree (commit alongside package.json)
+├── pnpm-workspace.yaml                # pnpm config: minimumReleaseAge + allowBuilds (esbuild)
+├── .node-version / .nvmrc             # Pinned Node version (24.16.0)
+├── tsconfig.json                      # Strict TS config (base)
+├── tsconfig.build.json               # Build config — scopes declaration emit to src/
+├── vite.config.ts                     # Library-mode bundling (CommonJS, esbuild minify)
+├── vitest.config.ts                   # Test runner config (Node env, test/**/*.test.ts)
+├── biome.json                         # Biome lint + format config (single quotes, no semis)
 ├── .editorconfig                      # 2-space indent, LF, UTF-8
-├── .ncurc.json                        # npm-check-updates: rejects chai / @types/chai majors (ESM-only upstream)
-├── .npmignore                         # Files excluded from the npm tarball
+├── .ncurc.json                        # npm-check-updates policy
+├── .npmignore                         # Belt-and-suspenders alongside the `files` allowlist
 ├── .gitignore                         # Local artifacts, `dist/`, `tmp/*`
 │
 ├── src/                               # Library source
@@ -60,10 +62,11 @@ search-text-highlight/
 │       ├── type.ts                    # All public + internal interfaces
 │       └── utils.ts                   # Validation + default-option resolution
 │
-├── test/                              # Mocha + Chai suite (`test/*.test.ts`)
-│   └── main.test.ts
+├── test/                              # Vitest suite (`test/*.test.ts`)
+│   ├── main.test.ts                   # Public API behavior
+│   └── exports.test.ts                # Dual-export (default + module.exports) smoke test on dist/
 │
-├── dist/                              # Webpack output — gitignored, regenerated, npm-published
+├── dist/                              # Vite + tsc output — gitignored, regenerated, npm-published
 │
 ├── docs/                              # This documentation
 │   └── getting-started/               # Environment setup, running locally, troubleshooting
@@ -128,38 +131,38 @@ Two invariants:
 
 Three independent toolchains touch the source. Knowing which does what avoids confusion.
 
-| Tool                                          | Purpose                                                 | Inputs                       | Outputs                                             |
-| --------------------------------------------- | ------------------------------------------------------- | ---------------------------- | --------------------------------------------------- |
-| `ts-node` (via Mocha)                         | Run tests directly from TypeScript without a precompile | `src/`, `test/`              | nothing on disk                                     |
-| `tsc --build` (`npm run build:tsc`)           | Type-check + emit `.d.ts` declarations                  | `tsconfig.json` → `src/**/*` | `dist/*.js`, `dist/*.d.ts` (uses `outDir: ./dist/`) |
-| `webpack --mode production` (`npm run build`) | Single-file CommonJS bundle for npm                     | `src/index.ts` (entry)       | `dist/index.js` (overwrites tsc output)             |
+| Tool                                              | Purpose                                                 | Inputs                            | Outputs                                              |
+| ------------------------------------------------- | ------------------------------------------------------- | --------------------------------- | --------------------------------------------------- |
+| Vitest (uses the Vite pipeline)                   | Run tests directly from TypeScript without a precompile | `src/`, `test/`                   | nothing on disk                                     |
+| `vite build` (first half of `pnpm run build`)     | Single-file CommonJS bundle for npm (esbuild minify)    | `src/index.ts` (entry)            | `dist/index.js`                                     |
+| `tsc -p tsconfig.build.json` (second half)        | Emit `.d.ts` declarations only (`--emitDeclarationOnly`)| `tsconfig.build.json` → `src/**/*`| `dist/index.d.ts`, `dist/lib/*.d.ts`               |
 
-**Order matters in CI.** The `Release and Publish` workflow runs `npm run build` (webpack), which is the artifact that ships. `tsc --build` is used during development for declaration files; the published `.d.ts` ride alongside the webpack output because `tsconfig.json` declares `declaration: true` and webpack invokes `ts-loader` with that config.
+**Order matters.** `pnpm run build` runs `vite build && tsc -p tsconfig.build.json --emitDeclarationOnly` — Vite emits the JS bundle that ships, then `tsc` lays the declarations alongside it. Vite's `emptyOutDir: true` clears `dist/` at the start of the bundle step, so the declaration emit must come **after** the Vite build, not before.
 
-`webpack.config.js` highlights:
+`vite.config.ts` highlights:
 
-- `entry: src/index.ts`
-- `libraryTarget: 'commonjs2'` — the published bundle exports a CommonJS module
-- `optimization.minimize: true` — ships minified
-- `clean-webpack-plugin` runs **only in production mode** to wipe `dist/` before each build
+- `lib.entry: src/index.ts`, `lib.fileName: () => 'index.js'`
+- `lib.formats: ['cjs']` — the published bundle is a CommonJS module (the package has no `"type":"module"`, so `require('search-text-highlight').highlight(...)` keeps working)
+- `build.minify: 'esbuild'` — ships minified
+- `build.emptyOutDir: true` — wipes `dist/` before each bundle
+- No `rollupOptions.external` — everything is inlined so the published package has **zero** runtime dependencies. Two cosmetic Rollup warnings (`COMMONJS_VARIABLE_IN_ESM`, `MIXED_EXPORTS`) about the `module.exports` interop tail are intentionally silenced
 
-`tsconfig.json` highlights:
+`tsconfig.json` / `tsconfig.build.json` highlights:
 
 - `module: 'commonjs'`, `moduleResolution: 'node'`, `target` defaults to ES3 — the bundle stays widely compatible
 - `strict-ish` flags: `strictNullChecks`, `noImplicitAny`, `noUnusedLocals`, `noUnusedParameters`
-- `declaration: true` + `outDir: ./dist/` produce the `.d.ts` files referenced by `package.json`'s `types` field
-- `removeComments: true` — published source has no comments
-- `include: ['src/**/*']`, `exclude: ['node_modules', 'dist']`
+- `tsconfig.build.json` extends the base, sets `rootDir: ./src`, and excludes `test/` so test files never leak into the published `.d.ts`
+- `declaration: true` produces the files referenced by `package.json`'s `types` field
 
 ## Test pipeline
 
 ```
-mocha --require ts-node/register test/**.ts --timeout 25000 --colors
+vitest run
 ```
 
-Mocha discovers `test/*.test.ts` (the `**` glob expands to `**.ts` because Mocha treats the path literally — see `package.json`'s `test` script). `ts-node/register` compiles TypeScript on the fly. Chai's `expect` assertions return chained errors with the offending value embedded.
+Vitest discovers `test/**/*.test.ts` (configured in `vitest.config.ts`) and runs them through the Vite pipeline, so TypeScript is handled natively with no separate compile step. Specs import their API explicitly — `import { describe, it, expect } from 'vitest'` (no globals) — and Vitest's `expect` assertions embed the offending value in the failure message.
 
-The 25-second timeout is generous for a synchronous library — most tests finish in milliseconds. Keep it; it gives Mocha room to print diagnostics on slow CI runners.
+`test/exports.test.ts` is a dual-export smoke test: it loads the built `dist/` bundle and confirms both the default import and the `module.exports` access path resolve `highlight`. The `build → test` order in CI exists so this spec runs against fresh output.
 
 ## Dependency boundaries
 
@@ -172,5 +175,5 @@ The 25-second timeout is generous for a synchronous library — most tests finis
 1. **One public method.** `searchTextHL.highlight` is the API; everything else is implementation detail
 2. **Two-layer separation.** `index.ts` is orchestration; `lib/` holds validation and types
 3. **Validate at the boundary, never below.** Internal functions trust their typed inputs
-4. **Single bundle, two module systems.** Webpack emits CommonJS; types are compatible with both `import` and `require`
+4. **Single bundle, two module systems.** Vite emits CommonJS; types are compatible with both `import` and `require`
 5. **Zero runtime dependencies.** Adding one is a release-team decision, not a routine PR

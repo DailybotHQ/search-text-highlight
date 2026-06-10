@@ -15,6 +15,16 @@ Verify that the repository is ready for a release and either let CI handle it (t
 - A hotfix needs to go out immediately
 - The user asks "what would the next published version look like?"
 
+## How the release script works
+
+`corepack pnpm run release` runs `bash .github/scripts/prepare_release.sh`, which:
+
+1. Refuses to run if **tracked** files have uncommitted changes (untracked/gitignored build artifacts like `dist/` are fine)
+2. Bumps the patch version in `package.json` using Node directly (not `pnpm version`, which would abort on a dirty tree under pnpm 11.x)
+3. Stages `package.json` (and `pnpm-lock.yaml` if present), commits with `[🤖 DailyBot] New release to vX.Y.Z launched 🚀`, and creates the matching `vX.Y.Z` tag
+
+The script only bumps **patch**. Minor / major bumps are manual (see below). Publishing to npm is done by the workflow with `corepack pnpm publish --no-git-checks`.
+
 ## Inputs to confirm
 
 - **Patch / minor / major** — patch by default; minor for new optional features; major for breaking changes
@@ -32,12 +42,12 @@ Verify that the repository is ready for a release and either let CI handle it (t
 | New optional option (no default change)          | minor     |
 | Default change, signature change, removed option | major     |
 
-If unsure, default to **patch**. The release workflow's `npm run release` calls `npm version patch`.
+If unsure, default to **patch** — that's what `prepare_release.sh` produces.
 
 ### 2. Verify the local state is publishable
 
 ```bash
-git status                    # Should be clean
+git status                    # Tracked files should be clean (prepare_release.sh enforces this)
 git fetch origin
 git rev-parse HEAD == git rev-parse origin/main      # Should be on main, up to date
 ```
@@ -45,30 +55,29 @@ git rev-parse HEAD == git rev-parse origin/main      # Should be on main, up to 
 Run the full check chain:
 
 ```bash
-npm run eslint:check
-npm run prettier:check
-npm run build:tsc
-npm run test
-npm run build
+corepack pnpm run biome:check
+corepack pnpm run build:tsc
+corepack pnpm run test
+corepack pnpm run build
 ```
 
-All five must pass. If any fails, fix before releasing.
+All four must pass. If any fails, fix before releasing.
 
 ### 3. Inspect what would publish
 
 ```bash
-npm pack --dry-run
+corepack pnpm pack --dry-run
 ```
 
-Verify the tarball contains only:
+Publishing is whitelist-driven by `package.json` `"files": ["dist"]`. Verify the tarball contains only:
 
 - `package/package.json`
 - `package/README.md`
 - `package/LICENSE`
 - `package/dist/index.js`
-- `package/dist/index.d.ts`
+- `package/dist/index.d.ts` (and the `dist/lib/*.d.ts` declarations)
 
-If anything else appears, update `.npmignore` before releasing.
+If source, tests, or docs appear, the `files` whitelist is too broad — fix it before releasing.
 
 ### 4. Decide: CI-driven (recommended) or manual?
 
@@ -83,16 +92,16 @@ The `release_and_publish.yml` workflow runs on PR merge to `main`:
    ```
 3. Verify the new version on npm:
    ```bash
-   npm view search-text-highlight version
+   corepack pnpm view search-text-highlight version
    ```
 
-The workflow runs `npm run release` (which is `npm version patch`). For minor / major, see [Manual section](#manual-rare).
+The workflow runs `corepack pnpm run release` (which is `prepare_release.sh`, a patch bump) and then publishes with `corepack pnpm publish --no-git-checks`. For minor / major, see [Manual section](#manual-rare).
 
 #### Manual (rare)
 
 When you need:
 
-- A minor or major bump (the workflow only does patch)
+- A minor or major bump (the script and workflow only do patch)
 - A hotfix that can't wait for CI
 - Recovery from a CI failure
 
@@ -102,46 +111,49 @@ Steps:
 # Make sure you're on main and up to date
 git fetch origin && git checkout main && git pull
 
-# Bump the version (manual control)
-npm version <patch|minor|major> -m "[🤖 DailyBot] New release to v%s launched 🚀"
+# Bump the version manually (the script only does patch, so do minor/major by hand).
+# Edit package.json's version, or use Node like prepare_release.sh does, then:
+git add package.json pnpm-lock.yaml
+git commit -m "[🤖 DailyBot] New release to vX.Y.Z launched 🚀"
+git tag -a vX.Y.Z -m vX.Y.Z
 
-# This creates a commit + tag. Push both:
+# Push commit + tag
 git push --follow-tags origin main
 
 # Build
-npm run build
+corepack pnpm run build
 
-# Publish
-npm publish
+# Publish (the workflow uses --no-git-checks; match it locally)
+corepack pnpm publish --no-git-checks
 ```
 
-> **Caveat:** if you push to `main`, the `release_and_publish` workflow may also trigger (depending on the PR-vs-direct-push trigger config). Check the workflow YAML — it currently triggers on `pull_request closed`, so a direct push to `main` won't fire it. If the workflow does fire, it runs another `npm run release` (double-bump risk).
+> **Caveat:** the `release_and_publish` workflow currently triggers on `pull_request closed`, so a direct push to `main` won't fire it. If your config differs and the workflow does fire, it runs another `prepare_release.sh` (double-bump risk). Check the workflow YAML first.
 
 ### 5. Verify the published artifact
 
 Either path:
 
 ```bash
-npm view search-text-highlight version       # Should match what you published
-npm view search-text-highlight dist-tags     # Should show 'latest' pointing to the new version
+corepack pnpm view search-text-highlight version       # Should match what you published
+corepack pnpm view search-text-highlight dist-tags     # 'latest' should point to the new version
 ```
 
 Quick consumer test in a scratch directory:
 
 ```bash
 mkdir -p tmp/consumer && cd tmp/consumer
-npm init -y
-npm install search-text-highlight@latest
+corepack pnpm init
+corepack pnpm add search-text-highlight@latest
 node -e "console.log(require('search-text-highlight').highlight('hello world', 'world'))"
 ```
 
-Should print: `Hello <span class="text-highlight">world</span>`.
+Should print: `hello <span class="text-highlight">world</span>`.
 
 ### 6. Verify the GitHub release
 
 ```bash
 gh release list -L 5
-gh release view v$(npm view search-text-highlight version)
+gh release view v$(corepack pnpm view search-text-highlight version)
 ```
 
 The release should have:
@@ -154,7 +166,7 @@ If the body looks empty, `.github/scripts/get_github_release_log.sh` may have fa
 
 ### 7. Verify the source branch was deleted
 
-The workflow's last step (`Step 8 - 🗑️ Deleting source branch`) deletes the merged feature branch. Confirm:
+The workflow's last step deletes the merged feature branch. Confirm:
 
 ```bash
 git branch -r | grep <branch-name>     # Should not appear
@@ -178,10 +190,10 @@ If the change is user-facing:
 
 ## Pre-release checklist
 
-- [ ] Working tree is clean
+- [ ] Tracked files are clean (`prepare_release.sh` will refuse otherwise)
 - [ ] Local `main` matches `origin/main`
 - [ ] Full check chain passes
-- [ ] `npm pack --dry-run` shows only the publishable files
+- [ ] `corepack pnpm pack --dry-run` shows only the publishable files
 - [ ] Release type decided (patch / minor / major)
 - [ ] If major: migration notes added to README, version bumped manually
 - [ ] If using CI: the PR is approved and ready to merge
@@ -189,7 +201,7 @@ If the change is user-facing:
 
 ## Post-release checklist
 
-- [ ] `npm view <package> version` reports the new version
+- [ ] `corepack pnpm view <package> version` reports the new version
 - [ ] A consumer install works
 - [ ] GitHub release has notes and the right tag
 - [ ] Source branch deleted (if it was a feature branch)
@@ -208,23 +220,24 @@ If a bad version shipped:
    ```
 3. **Deprecate the bad version**:
    ```bash
-   npm deprecate search-text-highlight@<bad-version> "Critical bug: use <good-version> instead"
+   corepack pnpm deprecate search-text-highlight@<bad-version> "Critical bug: use <good-version> instead"
    ```
 
 ## Don't
 
 - Skip the check chain (CI re-runs it but local feedback is faster)
-- Run `npm publish` from a feature branch
-- Run `npm version` and forget to push the tag
+- Run the publish from a feature branch
+- Bump the version and forget to push the tag
 - Edit `dist/` and publish manually — always rebuild
 - Force-publish over an existing version (npm rejects this anyway)
+- Run `corepack pnpm run release` when tracked files are dirty — the script will abort
 
 ## Do
 
 - Default to CI-driven release
 - Verify locally before merging
 - Communicate the release to consumers if behavior changed
-- Use `npm deprecate` for soft-revoking a bad version
+- Use `corepack pnpm deprecate` for soft-revoking a bad version
 
 ## Verification checklist
 

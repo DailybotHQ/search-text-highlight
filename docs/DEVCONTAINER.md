@@ -17,11 +17,12 @@ The `.devcontainer/` folder is gitignored so each developer can keep their own V
 
 ## Image at a glance
 
-Base: `node:24.15.0-trixie-slim` (Node 24 — newer than the npm `engines` lock; matches CLI tooling expectations).
+Base: `node:24.16.0-trixie-slim` (Node 24.16.0 — matches `.node-version` / `.nvmrc` and CI; comfortably above the `engines.node` `>=22.0.0` floor).
 
 Installed:
 
 - System: `git`, `curl`, `gnupg`, `ca-certificates`, `openssh-client`, `sudo`, `nano`, `chromium`
+- **pnpm** via Corepack — `corepack enable` activates the `pnpm@11.1.2` pinned in `package.json`
 - GitHub CLI (`gh`) — system-wide install
 - Claude Code CLI — installed via `claude.ai/install.sh` (native, npm method is deprecated)
 - Cursor CLI — installed via `cursor.com/install`
@@ -30,6 +31,7 @@ Installed:
 Configured:
 
 - `node` user added to passwordless sudoers (so the container can `apt install` if you need to)
+- A `/usr/local/bin/npm` wrapper routes bare `npm` invocations to `corepack pnpm`, so habitual `npm install` / `npm run …` still resolve to the project's pnpm toolchain
 - npm globals install under `/home/node/.npm-global/`
 - Default editor: `nano` (settable via `EDITOR`, `VISUAL`, `GIT_EDITOR`)
 - `PATH` includes `~/.npm-global/bin`, `~/.local/bin`, `~/.cursor/bin`
@@ -69,15 +71,18 @@ docker exec -it searchtexthl bash
 
 The first time you enter, you'll see the welcome banner from `custom_commands.sh`:
 
-```
-🚀 Search Text Highlight Development Container
+```text
+🚀 search-text-highlight — development container
 ✅ Running inside Docker container
 
-Useful commands:
-  • check_devcontainer  - Check if running inside Docker container (CRITICAL)
-  • help                 - Show this message
-  • check                - Run astro and biome checks
-  • fix                  - Run checks and apply automatic fixes
+Project commands:
+  • install     - corepack pnpm install
+  • check       - corepack pnpm run biome:check (lint + format, CI gate)
+  • fix         - corepack pnpm run biome:fix (lint + format, apply fixes)
+  • typecheck   - corepack pnpm run build:tsc (tsc --noEmit)
+  • test        - corepack pnpm run test (Vitest)
+  • build       - corepack pnpm run build (Vite production + tsc declarations)
+  • codecheck   - full local gate: biome → build:tsc → vite build → test
   ...
 ```
 
@@ -87,19 +92,19 @@ Run `help` any time to print it again.
 
 `docker/custom_commands.sh` defines:
 
-| Command              | What it does                                                                  | Status |
-| -------------------- | ----------------------------------------------------------------------------- | ------ |
-| `help`               | Print the welcome banner                                                      | Works  |
-| `check_devcontainer` | Verify you're inside a container                                              | Works  |
-| `install`            | `npm install`                                                                 | Works  |
-| `check`              | `npm run eslint:check` → `npm run prettier:check`                             | Works  |
-| `fix`                | `npm run eslint:fix` → `npm run prettier:fix`                                 | Works  |
-| `typecheck`          | `npm run build:tsc`                                                           | Works  |
-| `test`               | `npm run test` (Mocha)                                                        | Works  |
-| `build`              | `npm run build` (webpack production)                                          | Works  |
-| `codecheck`          | Full CI-style chain: lint, format check, `build:tsc`, `test`, webpack `build` | Works  |
+| Command              | What it does                                                                              | Status |
+| -------------------- | ---------------------------------------------------------------------------------------- | ------ |
+| `help`               | Print the welcome banner                                                                  | Works  |
+| `check_devcontainer` | Verify you're inside a container                                                          | Works  |
+| `install`            | `corepack pnpm install`                                                                   | Works  |
+| `check`              | `corepack pnpm run biome:check` (lint + format, read-only)                                | Works  |
+| `fix`                | `corepack pnpm run biome:fix` (lint + format, apply fixes)                                | Works  |
+| `typecheck`          | `corepack pnpm run build:tsc` (tsc --noEmit)                                              | Works  |
+| `test`               | `corepack pnpm run test` (Vitest)                                                         | Works  |
+| `build`              | `corepack pnpm run build` (Vite production + tsc declarations)                            | Works  |
+| `codecheck`          | Full CI-style chain: `biome:check` → `build:tsc` → Vite `build` → `test`                  | Works  |
 
-`codecheck` matches the verification sequence in [Development Commands](DEVELOPMENT_COMMANDS.md) and CI. Run `fix` first if you need auto-formatting before a read-only `codecheck`.
+All helpers invoke `corepack pnpm` directly (the `/usr/local/bin/npm` wrapper would route there anyway). `codecheck` matches the verification sequence in [Development Commands](DEVELOPMENT_COMMANDS.md) and CI — it builds before testing so the bundle smoke test runs against an up-to-date `dist/index.js`. Run `fix` first if you need auto-formatting before a read-only `codecheck`.
 
 ### AI CLI wrappers
 
@@ -157,9 +162,8 @@ Then **VS Code → Reopen in Container**. The extension uses the same `docker-co
 - `donjayamanne.githistory`
 - `vscode-icons-team.vscode-icons`
 - `shardulm94.trailing-spaces`
-- `esbenp.prettier-vscode`
-- `compulim.vscode-mocha`, `hbenl.vscode-mocha-test-adapter`
-- `dbaeumer.vscode-eslint`
+- `biomejs.biome`
+- `vitest.explorer`
 - `EditorConfig.EditorConfig`
 
 Add or remove from `.devcontainer/devcontainer.json` as needed — your local copy is gitignored so it won't fight other contributors' setups.
@@ -176,8 +180,8 @@ docker compose up -d --build
 docker exec -it searchtexthl bash
 
 # 3. Bootstrap
-install                              # → npm install
-test                                 # → npm run test (sanity check)
+install                              # → corepack pnpm install
+test                                 # → corepack pnpm run test (Vitest sanity check)
 
 # 4. Authenticate the AI CLIs (one-time, persisted in named volumes)
 claude                               # follow the OAuth prompt
@@ -211,8 +215,8 @@ Persistent volumes survive a rebuild — your AI CLI sessions and git config don
 
 ## When **not** to use the devcontainer
 
-- Quick edits and a one-shot `npm test` on a machine that already has Node 24 — the host is fine
-- You don't have Docker installed (or it's a memory-strapped laptop) — local Node + nvm works
+- Quick edits and a one-shot `corepack pnpm test` on a machine that already has Node 24.16.0 + Corepack — the host is fine
+- You don't have Docker installed (or it's a memory-strapped laptop) — local Node + nvm + `corepack enable` works
 
 ## Troubleshooting
 
@@ -223,6 +227,7 @@ Persistent volumes survive a rebuild — your AI CLI sessions and git config don
 | `gh` CLI doesn't see your auth             | The volume mount writes to `/home/node/.gh_data` — re-run `gh auth login` inside the container                             |
 | `git` complains about ownership            | `safe.directory='*'` is set globally; if a host UID mismatch persists, run `git config --global --add safe.directory /app` |
 | The container starts but `node` is missing | The base image changed; rebuild with `docker compose build --no-cache`                                                     |
-| `npm install` errors with `EACCES`         | The volume permissions drifted — run `sudo chown -R node:node /home/node` inside the container                             |
+| `corepack pnpm install` errors with `EACCES` | The volume permissions drifted — run `sudo chown -R node:node /home/node` inside the container                           |
+| `corepack` missing or wrong pnpm version    | Run `corepack enable` inside the container; it activates the `pnpm@11.1.2` pinned in `package.json`                        |
 
 For deeper environment issues, also consult [`docs/getting-started/TROUBLESHOOTING.md`](getting-started/TROUBLESHOOTING.md).

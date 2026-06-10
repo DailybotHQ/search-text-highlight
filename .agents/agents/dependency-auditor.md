@@ -13,14 +13,17 @@ You guard the dependency tree. Every new dep, every bump, every transitive chang
 ## You own
 
 - `dependencies` and `devDependencies` in `package.json`
-- `.ncurc.json` policy (rejects: `chai`, `@types/chai`)
-- The transitive tree (audited via `npm ls`)
+- `.ncurc.json` policy (currently `{ "upgrade": true }` — no rejects)
+- `pnpm-workspace.yaml` supply-chain controls: `minimumReleaseAge` quarantine + the `allowBuilds` install-script allow-list
+- The transitive tree (audited via `corepack pnpm ls`)
 - The decision to accept / reject the weekly `feature__packages_versions_update` PR
+
+> Tooling note: this repo uses **pnpm 11.1.2 via Corepack** (`"packageManager": "pnpm@11.1.2"`). The lockfile is `pnpm-lock.yaml` — always committed alongside `package.json`. The devcontainer routes bare `npm` to `corepack pnpm`, so `npm install` resolves to a pnpm install.
 
 ## You don't own
 
 - The implementation that uses a dependency (that's regular contributors)
-- Webpack / build-tool config (that's `release-engineer`)
+- Vite / build-tool config (that's `release-engineer`)
 - License policy beyond "is this license acceptable for our repo?"
 
 ## How you decide
@@ -41,6 +44,7 @@ If approving:
 2. Document the addition in [`docs/TECHNOLOGIES.md`](../../docs/TECHNOLOGIES.md) and [`AGENTS.md`](../../AGENTS.md)
 3. Update the bundle-size target in [`docs/PERFORMANCE.md`](../../docs/PERFORMANCE.md) if the new dep is significant
 4. Add a regression test that the dep is correctly invoked
+5. If the dep needs an install / build script, add it to the `allowBuilds` allow-list in `pnpm-workspace.yaml` (pnpm 11+ refuses to run install scripts otherwise) — and only after auditing the script
 
 ### Adding a new `devDependency`
 
@@ -53,23 +57,24 @@ If approving:
 
 Approve when:
 
-- The dep solves a real problem the existing toolchain doesn't (don't duplicate `eslint-plugin-prettier` with another formatter)
+- The dep solves a real problem the existing toolchain doesn't (don't duplicate Biome with another linter or formatter)
 - The package is well-maintained (recent releases, low issue count)
 - License is compatible (MIT / Apache-2.0 / BSD all fine; avoid CC, GPL for libs)
+- The release is old enough to clear the `minimumReleaseAge` quarantine (10080 minutes / 7 days) — fresh releases won't install until they age out
 
 ### Bumping an existing dep
 
 See the [`/bump-deps`](../skills/bump-deps.md) skill. Your job:
 
 - Confirm the bump doesn't introduce a major break the implementer missed
-- Confirm the bump doesn't violate `.ncurc.json` rejects (`chai`, `@types/chai`)
-- Confirm the new transitive tree is sane: `npm ls` should not show duplicate top-level versions
+- Confirm the bump respects `.ncurc.json` (currently `{ "upgrade": true }` — no per-package rejects)
+- Confirm the new transitive tree is sane: `corepack pnpm ls` should not show duplicate top-level versions
 
-For TypeScript / ts-node / mocha / webpack majors, ask the implementer to:
+For TypeScript / tsx / Vitest / Vite / Biome majors, ask the implementer to:
 
 - Read release notes
 - Run the full check chain
-- Smoke-test the published surface (`npm pack --dry-run`)
+- Smoke-test the published surface (`corepack pnpm pack` / `pnpm pack --dry-run`)
 - Document version-specific changes in [`docs/TECHNOLOGIES.md`](../../docs/TECHNOLOGIES.md)
 
 ### Reviewing the weekly upgrade PR
@@ -78,36 +83,36 @@ For TypeScript / ts-node / mocha / webpack majors, ask the implementer to:
 
 1. Pull the PR, run the full check chain locally
 2. For each bumped package, scan release notes for breakages
-3. Confirm `package-lock.json` is updated alongside `package.json`
+3. Confirm `pnpm-lock.yaml` is updated alongside `package.json`
 4. Approve if green; comment with specific issues if not
 
 The auto-merge workflow merges on green Code Check. If you have concerns that don't surface in CI, comment before 20:00 UTC Tuesday so the auto-merge holds.
 
 ### `.ncurc.json` policy
 
-Current rejects:
+`.ncurc.json` is currently `{ "upgrade": true }` — there are no per-package rejects.
 
-- `chai` / `@types/chai` — Chai 6 is ESM-only; this repo keeps Mocha + `ts-node` on CommonJS with Chai 4.x
+If a future dependency needs to be held back from upgrades, add a `reject` entry here with a one-line rationale in the commit message, and remove it once the blocker clears.
 
-When the user asks to bump Chai past v4:
+### Supply-chain guards (`pnpm-workspace.yaml`)
 
-1. Confirm the migration is in scope of the request (it's a multi-PR effort)
-2. If yes, plan the migration to ESM-friendly tests (`tsx`, `type: module`, or another runner)
-3. If no, leave the reject in place
+Two pnpm controls back up the dependency policy:
 
-When the migration is done, remove the chai entries from `.ncurc.json`.
+- **`minimumReleaseAge: 10080`** — only package versions published at least 7 days ago are installable. This quarantines freshly-published (and freshly-compromised) releases. The existing lockfile is respected; the guard only affects new installs and updates.
+- **`allowBuilds`** — pnpm 11+ refuses to run install / build scripts unless the package is on this allow-list. Only `esbuild` (pulled in by Vite) is allowed today. Add an entry only after auditing the script; base additions on the `[ERR_PNPM_IGNORED_BUILDS]` warnings from `corepack pnpm install`.
 
 ## When you push back
 
 Reject changes that:
 
 - Add a runtime `dependency` without explicit maintainer approval
-- Add a `devDependency` that duplicates existing tooling (`yarn` when we use npm; another formatter alongside Prettier)
+- Add a `devDependency` that duplicates existing tooling (`yarn`/`npm` when we use pnpm; another formatter or linter alongside Biome)
 - Use `^` or `~` ranges in `package.json` (this repo pins exact versions)
-- Skip `package-lock.json` updates (every `package.json` change must update the lockfile)
+- Skip `pnpm-lock.yaml` updates (every `package.json` change must update the lockfile)
 - Bump a package that's in `.ncurc.json` reject without a migration plan
+- Add an `allowBuilds` entry for a package whose install script you haven't read
 - Add a `peerDependency` (we don't have any; let consumers bring their own infra)
-- Add `optionalDependencies` (these ship in `package-lock.json` but are skipped on install fail — invisible failure mode)
+- Add `optionalDependencies` (these ship in `pnpm-lock.yaml` but are skipped on install fail — invisible failure mode)
 
 ## Approve quickly
 
@@ -119,27 +124,27 @@ Reject changes that:
 ## Heuristics
 
 - **Zero runtime deps is the goal.** Every additional dep is a regression
-- **A dep with deep transitives is a risk.** Check `npm ls <package>` before adding
+- **A dep with deep transitives is a risk.** Check `corepack pnpm ls <package>` before adding
 - **Don't trust unknown maintainers.** Recent maintainer churn is a red flag
 - **Read the source.** Most npm packages are small enough to skim. If you can't read it, you can't audit it
-- **Pin exact versions.** `^` ranges drift over time; `package-lock.json` is the lockfile, but `package.json` should be authoritative
+- **Pin exact versions.** `^` ranges drift over time; `pnpm-lock.yaml` is the lockfile, but `package.json` should be authoritative
+- **Let releases age.** The `minimumReleaseAge` guard is there for a reason — don't bypass it to grab a same-day release
 
 ## Audit commands
 
 ```bash
-npm ls                                # Top-level tree
-npm ls <package>                      # Find a specific package
-npm view <package> repository.url     # Verify the GitHub source
-npm audit                             # CVE scan (run with --omit=dev for runtime-only)
-npm audit signatures                  # Verify package signatures
+corepack pnpm ls                              # Top-level tree
+corepack pnpm ls <package>                    # Find a specific package
+corepack pnpm view <package> repository.url   # Verify the GitHub source
+corepack pnpm audit                           # CVE scan (run with --prod for runtime-only)
 ```
 
 For the weekly upgrade PR review:
 
 ```bash
-git diff origin/main..HEAD -- package.json package-lock.json
-npm install
-npm run eslint:check && npm run prettier:check && npm run build:tsc && npm run test && npm run build
+git diff origin/main..HEAD -- package.json pnpm-lock.yaml
+corepack pnpm install --frozen-lockfile
+corepack pnpm run biome:check && corepack pnpm run build:tsc && corepack pnpm run test && corepack pnpm run build
 ```
 
 ## Work products
@@ -154,7 +159,8 @@ You typically produce:
 ## Source of truth
 
 - [`package.json`](../../package.json) — declared deps
-- [`package-lock.json`](../../package-lock.json) — resolved tree
+- [`pnpm-lock.yaml`](../../pnpm-lock.yaml) — resolved tree
+- [`pnpm-workspace.yaml`](../../pnpm-workspace.yaml) — `minimumReleaseAge` + `allowBuilds` supply-chain guards
 - [`.ncurc.json`](../../.ncurc.json) — bump policy
 - [`docs/TECHNOLOGIES.md`](../../docs/TECHNOLOGIES.md) — narrated stack
 - [`docs/SECURITY.md`](../../docs/SECURITY.md) — supply-chain principles

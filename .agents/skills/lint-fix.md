@@ -1,12 +1,12 @@
 ---
 name: lint-fix
-description: Run ESLint and Prettier with --fix and tidy any remaining issues
+description: Run Biome with --write and tidy any remaining issues
 type: skill
 ---
 
 # Skill: `/lint-fix`
 
-Apply ESLint and Prettier auto-fixes, then handle anything that auto-fix can't repair.
+Apply Biome auto-fixes (lint + format in one pass), then handle anything that auto-fix can't repair.
 
 ## When to use
 
@@ -17,68 +17,71 @@ Apply ESLint and Prettier auto-fixes, then handle anything that auto-fix can't r
 
 ## Inputs to confirm
 
-Usually nothing — this is a one-shot procedure. If the user only wants ESLint or only Prettier, they'll say so.
+Usually nothing — this is a one-shot procedure. Biome handles both linting and formatting in a single step.
 
 ## Procedure
 
 ### 1. Auto-fix what tooling can
 
 ```bash
-npm run eslint:fix
-npm run prettier:fix
+corepack pnpm run biome:fix
 ```
 
-Order matters: ESLint first (because some lint fixes change spacing), Prettier second (because Prettier always wins for formatting).
+`biome:fix` is `biome check --write` — it applies both lint fixes and formatting in a single pass. For fixes Biome marks as unsafe (behavioral, not just stylistic), opt in explicitly:
+
+```bash
+corepack pnpm run biome:fix:unsafe        # biome check --write --unsafe
+```
+
+Only run the unsafe variant when you've reviewed what it will change — it can rewrite logic, not just whitespace.
 
 ### 2. Check for residual issues
 
 ```bash
-npm run eslint:check
-npm run prettier:check
+corepack pnpm run biome:check
 ```
 
-If both pass, done. Otherwise:
+If it passes, done. Otherwise:
 
-### 3. Resolve ESLint errors that auto-fix couldn't
+### 3. Resolve lint errors that auto-fix couldn't
 
-Common categories:
+Common categories (rules configured in `biome.json`):
 
-| Rule                                 | Auto-fix?                                | Manual fix                                                                      |
-| ------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------- |
-| `no-console`                         | No                                       | Remove the `console.*` call (or move to `tmp/` if it's a debug aid)             |
-| `@typescript-eslint/no-unused-vars`  | Sometimes                                | Delete the unused var, or rename to `_unused` if it's a positional callback arg |
-| `@typescript-eslint/no-explicit-any` | No (we don't enforce this rule globally) | Add `as Type` with a comment, or update the type to remove `any`                |
-| `prefer-const`                       | Yes                                      | n/a                                                                             |
-| `eqeqeq`                             | No                                       | Use `===` / `!==`                                                               |
-| `no-var`                             | Yes                                      | n/a                                                                             |
+| Rule                            | Auto-fix? | Manual fix                                                              |
+| ------------------------------- | --------- | ---------------------------------------------------------------------- |
+| `suspicious/noConsole`          | No        | Remove the `console.*` call (allowed in `test/**` via override)        |
+| `correctness/noUnusedVariables` | Sometimes | Delete the unused var, or prefix with `_` if it's a positional arg     |
+| `suspicious/noExplicitAny`      | n/a       | Disabled in `biome.json` — `any` is allowed (used in invalid-type tests) |
+| `style/useConst`                | Yes       | n/a                                                                    |
+| `suspicious/noDoubleEquals`     | Sometimes | Use `===` / `!==`                                                      |
 
 If a rule fires on legitimate code, **don't** disable it inline. Instead:
 
 1. Confirm the rule is wrong for the codebase (open a discussion)
-2. If yes, edit `eslint.config.mjs` deliberately
+2. If yes, edit `biome.json` deliberately
 3. If no, fix the code
 
-### 4. Resolve Prettier diffs
+### 4. Resolve formatter diffs
 
-Prettier rarely fails after `--write` — when it does, the cause is usually:
+Biome rarely fails formatting after `--write` — when it does, the cause is usually:
 
-- A file Prettier doesn't know how to handle (uncommon — the glob is `**/*.{css,html,js,ts,json,md,yaml,yml}`)
 - A merge conflict marker (`<<<<<<<`) in a file
-- A syntax error in a `.ts` file (Prettier can't format invalid code; fix the syntax first)
+- A syntax error in a `.ts` file (Biome can't format invalid code; fix the syntax first)
+- A file outside the configured `files.includes` globs (check `biome.json`)
 
 ### 5. Verify
 
 ```bash
-npm run eslint:check && npm run prettier:check
+corepack pnpm run biome:check
 ```
 
-Both must pass.
+Must pass (exit 0).
 
 ### 6. Commit
 
 ```bash
 git add -p           # Review every hunk before staging
-git commit -m "style: apply eslint and prettier autofixes"
+git commit -m "style: apply biome autofixes"
 ```
 
 If the lint-fix is part of a bigger change (e.g., you also added a feature), commit the lint changes separately or fold them into the feature commit — but **don't** commit unrelated touch-ups under a feature title.
@@ -91,51 +94,40 @@ If the lint-fix is part of a bigger change (e.g., you also added a feature), com
 
 ## Anti-patterns
 
-### Tweaking `eslint.config.mjs` to silence one warning
+### Tweaking `biome.json` to silence one warning
 
 If you find yourself editing the rule list to make a single line pass, the lint rule is probably correct and your code probably has a real issue. Fix the code.
 
-### Ignoring `.prettierrc` defaults
+### Ignoring Biome's formatter defaults
 
-The configured Prettier values (`singleQuote: true`, `semi: false`, `trailingComma: 'es5'`) are intentional. Don't argue with them; let Prettier rewrite.
+The configured formatter values (`quoteStyle: single`, `semicolons: asNeeded`, `trailingCommas: es5`, `lineWidth: 120`) are intentional. Don't argue with them; let Biome rewrite.
 
-### Using `// eslint-disable-next-line` liberally
+### Using `// biome-ignore` liberally
 
 The only legitimate uses in this repo are:
 
-- `: any` type annotations in tests where we deliberately violate the type contract
 - A documented one-shot exception with a comment explaining why
 
-If you find yourself adding a third `eslint-disable-next-line` to a single file, the rule is probably wrong for the file — discuss instead of papering over.
+`any` is already allowed globally (`noExplicitAny: off`) and `console` is allowed in `test/**`, so most cases that would have needed a suppression don't. If you find yourself adding a third `// biome-ignore` to a single file, the rule is probably wrong for the file — discuss instead of papering over.
 
 ## Common output
 
 After a clean `lint-fix` run, expect:
 
-```
-$ npm run eslint:fix
-> search-text-highlight@2.0.8 eslint:fix
-> eslint --ext .ts --fix --ignore-path .gitignore .
+```text
+$ corepack pnpm run biome:fix
+> search-text-highlight@2.1.3 biome:fix
+> biome check --write
 
-(no output = no errors, with fixes applied silently)
-
-$ npm run prettier:fix
-> search-text-highlight@2.0.8 prettier:fix
-> prettier --write --ignore-path .gitignore '**/*.{css,html,js,ts,json,md,yaml,yml}' '!package.json'
-
-src/index.ts 25ms
-src/lib/type.ts 15ms
-...
+Checked N files in Xms. No fixes applied.
 ```
 
-If `eslint:fix` prints errors after the autofix pass, those are the manual cases from step 3.
+If `biome:fix` still reports diagnostics after the autofix pass, those are the manual cases from step 3.
 
 ## Verification checklist
 
-- [ ] `npm run eslint:fix` ran cleanly (or the residuals were manually resolved)
-- [ ] `npm run prettier:fix` ran cleanly
-- [ ] `npm run eslint:check` exits 0
-- [ ] `npm run prettier:check` exits 0
-- [ ] No new `// eslint-disable*` comments unless documented
-- [ ] No `eslint.config.mjs` / `.prettierrc` changes unless deliberate
+- [ ] `corepack pnpm run biome:fix` ran cleanly (or the residuals were manually resolved)
+- [ ] `corepack pnpm run biome:check` exits 0
+- [ ] No new `// biome-ignore` comments unless documented
+- [ ] No `biome.json` changes unless deliberate
 - [ ] Conventional commit message (`style:` for autofix-only commits, otherwise the original feature/fix prefix)

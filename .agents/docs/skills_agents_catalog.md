@@ -13,15 +13,15 @@ The catalog is split into four sections:
 
 ## 1. Skills
 
-Procedural slash commands tuned for this library's TypeScript / npm workflow.
+Procedural slash commands tuned for this library's TypeScript / pnpm workflow.
 
 | Slash command      | File                                                      | When to use                                                                              |
 | ------------------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | `/add-option`      | [skills/add-option.md](../skills/add-option.md)           | Add a new option to `OptionsType`, wire it through validation, defaults, tests, and docs |
 | `/add-feature`     | [skills/add-feature.md](../skills/add-feature.md)         | Add a wholly new method to `searchTextHL` — rare; usually a major version bump           |
-| `/write-tests`     | [skills/write-tests.md](../skills/write-tests.md)         | Author Mocha + Chai tests for the current change                                         |
-| `/fix-build`       | [skills/fix-build.md](../skills/fix-build.md)             | Diagnose and repair a failing webpack / tsc build                                        |
-| `/lint-fix`        | [skills/lint-fix.md](../skills/lint-fix.md)               | Run ESLint and Prettier with `--fix` plus follow-ups                                     |
+| `/write-tests`     | [skills/write-tests.md](../skills/write-tests.md)         | Author Vitest tests for the current change                                               |
+| `/fix-build`       | [skills/fix-build.md](../skills/fix-build.md)             | Diagnose and repair a failing Vite / tsc build                                           |
+| `/lint-fix`        | [skills/lint-fix.md](../skills/lint-fix.md)               | Run Biome with `--write` plus follow-ups                                                 |
 | `/bump-deps`       | [skills/bump-deps.md](../skills/bump-deps.md)             | Update `package.json` safely; respects `.ncurc.json`                                     |
 | `/release`         | [skills/release.md](../skills/release.md)                 | Walk through the release workflow, verify prerequisites, ship                            |
 | `/devcontainer-up` | [skills/devcontainer-up.md](../skills/devcontainer-up.md) | Spin up the local Docker dev environment and verify it                                   |
@@ -35,9 +35,9 @@ Specialized personas. Spawn the matching agent via the `Agent` tool with `subage
 | -------------------- | --------------------------------------------------------------- | -------------------------------------------------------------- |
 | `ts-architect`       | [agents/ts-architect.md](../agents/ts-architect.md)             | Module layout, public API surface, file boundaries             |
 | `api-designer`       | [agents/api-designer.md](../agents/api-designer.md)             | Shape of `OptionsType` and any new exposed function            |
-| `test-author`        | [agents/test-author.md](../agents/test-author.md)               | Mocha + Chai tests, layout, conventions                        |
+| `test-author`        | [agents/test-author.md](../agents/test-author.md)               | Vitest tests, layout, conventions                              |
 | `dependency-auditor` | [agents/dependency-auditor.md](../agents/dependency-auditor.md) | `package.json` updates, transitive risks, `.ncurc.json` policy |
-| `release-engineer`   | [agents/release-engineer.md](../agents/release-engineer.md)     | Webpack, npm publish, GitHub Actions                           |
+| `release-engineer`   | [agents/release-engineer.md](../agents/release-engineer.md)     | Vite, pnpm publish, GitHub Actions                             |
 | `security-reviewer`  | [agents/security-reviewer.md](../agents/security-reviewer.md)   | Regex inputs, ReDoS, HTML interpolation                        |
 | `doc-writer`         | [agents/doc-writer.md](../agents/doc-writer.md)                 | Keeps `AGENTS.md`, `README.md`, and `docs/` in sync            |
 
@@ -45,12 +45,12 @@ Specialized personas. Spawn the matching agent via the `Agent` tool with `subage
 
 Short, deterministic shell sequences — no questions, no branching.
 
-| Slash command   | File                                                    | Effect                                                                        |
-| --------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `/verify`       | [commands/verify.md](../commands/verify.md)             | Run the full pre-push check chain (eslint + prettier + tsc + tests + webpack) |
-| `/pack-check`   | [commands/pack-check.md](../commands/pack-check.md)     | Inspect what `npm pack` would publish                                         |
-| `/ci-reproduce` | [commands/ci-reproduce.md](../commands/ci-reproduce.md) | Reproduce a failing CI workflow step locally                                  |
-| `/reset-env`    | [commands/reset-env.md](../commands/reset-env.md)       | Clear `node_modules` + caches and reinstall                                   |
+| Slash command   | File                                                    | Effect                                                                  |
+| --------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `/verify`       | [commands/verify.md](../commands/verify.md)             | Run the full pre-push check chain (Biome + tsc + Vitest + Vite build)   |
+| `/pack-check`   | [commands/pack-check.md](../commands/pack-check.md)     | Inspect what `pnpm pack` would publish                                   |
+| `/ci-reproduce` | [commands/ci-reproduce.md](../commands/ci-reproduce.md) | Reproduce a failing CI workflow step locally                            |
+| `/reset-env`    | [commands/reset-env.md](../commands/reset-env.md)       | Clear `node_modules` + caches and reinstall                             |
 
 ## 4. Deep Work Plan delegators
 

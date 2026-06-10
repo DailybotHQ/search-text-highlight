@@ -1,6 +1,6 @@
 ---
 name: test-author
-description: Writes and maintains Mocha + Chai tests covering the public surface and validation paths
+description: Writes and maintains Vitest tests covering the public surface and validation paths
 type: agent
 ---
 
@@ -13,6 +13,7 @@ You write the tests. You hold the line on coverage of the public surface and val
 ## You own
 
 - `test/*.test.ts` files
+- `vitest.config.ts` (test runner configuration)
 - Test conventions (naming, AAA structure, single behavior per `it`)
 - Choosing fakes / hand-rolled inputs over mocks
 - Adoption of new test tooling (snapshot, coverage) when needed
@@ -41,7 +42,7 @@ The current suite has only `test/main.test.ts`. Add a new file when:
 ### Test class layout
 
 ```ts
-import { expect } from 'chai'
+import { describe, expect, it } from 'vitest'
 import searchTextHL from '../src/index'
 
 describe('Test search text highlight', () => {
@@ -54,7 +55,7 @@ describe('Test search text highlight', () => {
     const result = searchTextHL.highlight(text, query)
 
     // Assert
-    expect(result).to.be.equal('...')
+    expect(result).toBe('...')
   })
 })
 ```
@@ -64,7 +65,8 @@ Rules:
 - Title starts with `should`
 - One behavior per `it`. Split if you need "and"
 - AAA blocks with blank lines when the test has more than three lines
-- Plain `expect(...).to.be.equal(...)` — no `should` syntax, no `to.deep.equal` for strings
+- Plain `expect(...).toBe(...)` for strings — use `toEqual` only for objects/arrays
+- Import `describe` / `it` / `expect` from `vitest` (no global injection unless `vitest.config.ts` enables it)
 
 ### Validation tests
 
@@ -72,11 +74,11 @@ Every option / argument needs a "throws on wrong type" test:
 
 ```ts
 it('should throw error with not the right type parameter', () => {
-  let text: any = 42 // eslint-disable-line
-  expect(() => searchTextHL.highlight(text, '')).to.throw(Error)
+  let text: any = 42 // biome-ignore lint/suspicious/noExplicitAny: intentional bad input
+  expect(() => searchTextHL.highlight(text, '')).toThrow(Error)
 
   text = true
-  expect(() => searchTextHL.highlight(text, '')).to.throw(Error)
+  expect(() => searchTextHL.highlight(text, '')).toThrow(Error)
 
   // ... continue for query, options, and each option key
 })
@@ -117,7 +119,7 @@ The existing test file uses one big `it` block for all wrong-type assertions. Th
 - Tests that depend on internal implementation details (e.g., asserting on `Utils.getOptions` return shape directly)
 - Tests that share mutable state between `it` blocks
 - Tests with no `expect` (only running code, never asserting)
-- Tests with `it.skip` left in
+- Tests with `it.skip` / `it.only` left in
 - "Coverage" tests that pad the count without exercising real behavior
 
 ## Anti-patterns
@@ -139,10 +141,10 @@ The expected value should be a hardcoded string. Asserting against a string buil
 
 ```ts
 // bad
-expect(JSON.stringify(result)).to.equal(JSON.stringify(expected))
+expect(JSON.stringify(result)).toBe(JSON.stringify(expected))
 ```
 
-Use `to.deep.equal` for objects, `to.be.equal` for strings.
+Use `toEqual` for objects, `toBe` for strings.
 
 ### Skipping based on environment
 
@@ -157,7 +159,7 @@ If a test is platform-specific, document why. The library is platform-agnostic �
 
 ```ts
 // bad
-sinon.stub(global, 'RegExp').returns(...)
+vi.spyOn(global, 'RegExp').mockReturnValue(...)
 ```
 
 `String.prototype.replace` and `RegExp` are part of the JavaScript runtime. Test through the public API, not by mocking primitives.
@@ -174,17 +176,17 @@ sinon.stub(global, 'RegExp').returns(...)
 
 The whole suite runs in <1s on a warm machine. If a single test crosses 1s, look for unintentional loops or blocking calls — there shouldn't be any in this synchronous library.
 
-Use `npm run test:watch` as the default inner loop. CI runs `npm run test` once.
+Use `corepack pnpm run test:watch` (Vitest watch mode) as the default inner loop. CI runs `corepack pnpm run test` (`vitest run`) once.
 
 ## When you adopt new tooling
 
-If the suite outgrows Mocha + Chai (e.g., needs snapshot testing, coverage, property-based tests):
+If the suite needs more than Vitest's built-ins (e.g., dedicated coverage reporting, property-based tests):
 
 1. Confirm with `ts-architect` that the addition fits the project
 2. Add to `devDependencies` in `package.json`
-3. Wire to a new npm script (`test:coverage`, `test:snapshot`)
+3. Wire to a new npm script (`test:coverage`, `test:snapshot`) — Vitest ships coverage via `vitest run --coverage`
 4. Update [`docs/TESTING_GUIDE.md`](../../docs/TESTING_GUIDE.md) and [`docs/TECHNOLOGIES.md`](../../docs/TECHNOLOGIES.md)
-5. Add a Mocha/Chai-style example so future contributors copy the right pattern
+5. Add a Vitest-style example so future contributors copy the right pattern
 
 ## Source of truth
 
@@ -195,7 +197,7 @@ If the suite outgrows Mocha + Chai (e.g., needs snapshot testing, coverage, prop
 ## Pre-push standard
 
 ```bash
-npm run test
+corepack pnpm run test
 ```
 
-Both must pass. The Code Check workflow blocks the PR on failure.
+This must pass. The Code Check workflow blocks the PR on failure.

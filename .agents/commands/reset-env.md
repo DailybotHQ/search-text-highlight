@@ -18,27 +18,33 @@ Wipe local environment artifacts and reinstall. Use when the toolchain is misbeh
 
 ## When to use
 
-- `npm install` produces unexpected output
+- `corepack pnpm install` produces unexpected output
 - A test passes locally but fails in CI (start with this before assuming env-divergence)
-- Webpack reports phantom errors that go away after a rebuild
+- Vite reports phantom errors that go away after a rebuild
 - TypeScript reports stale type info even after editing
-- After pulling a branch with significantly different `package.json`
+- After pulling a branch with significantly different `package.json` / `pnpm-lock.yaml`
+
+> All commands use `corepack pnpm`. The repo pins `pnpm@11.1.2` via the `packageManager`
+> field, and Corepack provisions that exact version. In the devcontainer a bare `npm` is
+> routed to `corepack pnpm`, so `npm install` works there too — but prefer the explicit
+> `corepack pnpm` form everywhere else.
 
 ## Default reset (most common)
 
 ```bash
 rm -rf node_modules dist
-npm install
+corepack pnpm install --frozen-lockfile
 ```
+
+`--frozen-lockfile` installs exactly what `pnpm-lock.yaml` pins and fails if the lockfile is out of sync with `package.json` — that's what you want for a clean, reproducible reset. Drop the flag only when you intend to update the lockfile.
 
 Then verify:
 
 ```bash
-npm run eslint:check && \
-  npm run prettier:check && \
-  npm run build:tsc && \
-  npm run test && \
-  npm run build
+corepack pnpm run biome:check && \
+  corepack pnpm run build:tsc && \
+  corepack pnpm run test && \
+  corepack pnpm run build
 ```
 
 If green, you're back to a working state.
@@ -46,27 +52,27 @@ If green, you're back to a working state.
 ## Aggressive reset (when default doesn't help)
 
 ```bash
-# Stop nodemon / mocha watchers if running
+# Stop nodemon / vitest watchers if running
 pkill -f nodemon
-pkill -f mocha
+pkill -f vitest
 
 # Wipe local artifacts
 rm -rf node_modules dist
-rm -rf coverage .nyc_output           # If you've added coverage tooling
-rm -f *.tgz                            # Old npm pack outputs
+rm -rf coverage                       # If you've added coverage tooling
+rm -f *.tgz                           # Old pnpm pack outputs
 
-# Clear npm cache
-npm cache clean --force
+# Clear the pnpm store cache
+corepack pnpm store prune
 
 # Reinstall
-npm install
+corepack pnpm install --frozen-lockfile
 ```
 
 Verify with the full chain.
 
 ## Nuclear reset (last resort)
 
-When even the aggressive reset fails — usually means an OS-level cache or registry is poisoned:
+When even the aggressive reset fails — usually means a store-level cache is poisoned:
 
 ```bash
 # Stop all node processes
@@ -74,22 +80,20 @@ pkill -f node
 
 # Wipe local
 rm -rf node_modules dist coverage
-rm -rf .git/hooks/node_modules         # If husky / pre-commit hooks installed deps
 
-# Wipe global npm caches
-npm cache clean --force
-rm -rf ~/.npm/_cacache
-rm -rf ~/.npm/_logs
+# Prune and (if needed) clear the pnpm content-addressable store
+corepack pnpm store prune
+rm -rf "$(corepack pnpm store path)"      # Full store wipe — forces re-download
 
 # Optionally regenerate the lockfile (caution — see below)
-# rm -f package-lock.json
-# npm install
+# rm -f pnpm-lock.yaml
+# corepack pnpm install
 
 # Standard reinstall
-npm install
+corepack pnpm install --frozen-lockfile
 ```
 
-> **About deleting `package-lock.json`:** don't, unless you intend to commit the regenerated lockfile and have a maintainer review it. The lockfile is the trust anchor for the dep tree — replacing it can pull in different transitive versions and is the kind of change that needs a review.
+> **About deleting `pnpm-lock.yaml`:** don't, unless you intend to commit the regenerated lockfile and have a maintainer review it. The lockfile is the trust anchor for the dep tree — replacing it can pull in different transitive versions and is the kind of change that needs a review. Note also that `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080`, so a fresh resolution will refuse versions published less than 7 days ago.
 
 ## When the issue is the devcontainer
 
@@ -106,19 +110,19 @@ docker exec -it searchtexthl bash
 Inside the new container:
 
 ```bash
-install        # → npm install
-test           # → npm run test
+install        # → corepack pnpm install (npm wrapper routes to pnpm)
+test           # → corepack pnpm run test
 ```
 
 The named volumes (`claude_data`, `codex_data`, `cursor_data`, `gh_data`) are preserved unless you explicitly `docker volume rm` them — your AI auth survives a devcontainer rebuild.
 
 ## When TypeScript is the source
 
-TypeScript caches incremental builds in `tsconfig.tsbuildinfo` (the file lives in `dist/` for this repo because of `outDir`). After clearing `dist/`:
+After clearing `dist/`:
 
 ```bash
 rm -rf dist
-npm run build:tsc
+corepack pnpm run build:tsc
 ```
 
 If your editor still shows phantom errors, restart its TypeScript server:
@@ -126,55 +130,51 @@ If your editor still shows phantom errors, restart its TypeScript server:
 - VS Code: `Cmd/Ctrl+Shift+P` → `TypeScript: Restart TS Server`
 - Cursor: same shortcut
 
-## When Mocha is hanging
+## When Vitest is hanging
 
-Mocha occasionally fails to exit due to a lingering handle. The library is synchronous, so if this happens:
+Vitest occasionally fails to exit due to a lingering handle. The library is synchronous, so if this happens:
 
 1. Ensure no test introduced async code without proper cleanup
-2. Run with `--exit`:
+2. Run a single file to isolate it:
    ```bash
-   npx mocha --require ts-node/register test/**.ts --timeout 25000 --colors --exit
+   corepack pnpm exec vitest run test/main.test.ts
    ```
-3. **Find the leak** — `--exit` is a band-aid
+3. **Find the leak** — forcing an exit is a band-aid
 
 ## Verify the reset worked
 
 After any reset:
 
 ```bash
-node --version          # Match the project's engines
-npm --version
-ls node_modules | head  # Should show ~30+ packages
-npm run test            # Sanity check
-npm run build           # Production bundle
+node --version          # Match the project's engines (>=22; repo dev on 24.16.0)
+corepack pnpm --version # Should report 11.1.2
+ls node_modules | head   # Should show packages
+corepack pnpm run test  # Sanity check
+corepack pnpm run build # Production bundle
 ```
 
 If the suite still misbehaves, the issue is in the code or the test, not the environment.
 
 ## Don't
 
-- Delete `package.json` or `package-lock.json` to "really start fresh" — without those, `npm install` does nothing
+- Delete `package.json` or `pnpm-lock.yaml` to "really start fresh" — without those, `corepack pnpm install` can't reproduce the tree
 - Reset env in a panic — read the actual error first; many "stale state" issues are real bugs
-- Run `npm install` while another `npm install` is in flight — the second one will conflict and may corrupt `node_modules`
-- Delete `~/.npm/_cacache` while npm is running
+- Run `corepack pnpm install` while another install is in flight — the second one will conflict
+- Wipe the pnpm store while an install is running
 
 ## Do
 
 - Start with the default reset
 - Escalate gradually
 - Capture the original error before resetting (in `tmp/diagnostic-<date>.log` or similar)
-- Check `npm doctor` for environment health if resets keep being needed:
-
-```bash
-npm doctor
-```
+- If installs keep failing, confirm Corepack is enabled: `corepack enable`
 
 ## Common follow-ups
 
 After a reset, you may want:
 
 - [`/verify`](verify.md) — confirm the full check chain passes
-- [`/fix-build`](../skills/fix-build.md) — if `npm run build` still fails after reset
+- [`/fix-build`](../skills/fix-build.md) — if `corepack pnpm run build` still fails after reset
 - [`/devcontainer-up`](../skills/devcontainer-up.md) — switch to the devcontainer if local Node is the problem
 
 ## See also

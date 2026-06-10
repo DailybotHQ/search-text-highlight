@@ -6,7 +6,7 @@ Reference for every GitHub Actions workflow in `.github/workflows/`. Each workfl
 
 | Workflow                           | File                                       | Trigger                                         | Purpose                                                        |
 | ---------------------------------- | ------------------------------------------ | ----------------------------------------------- | -------------------------------------------------------------- |
-| Code Check                         | `code_check.yml`                           | PR open / sync / reopen against `main`          | Lint, format, test gate                                        |
+| Code Check                         | `code_check.yml`                           | PR open / sync / reopen against `main`          | Biome (lint + format), build, test gate                        |
 | Pull Request Content Check         | `pull_request_check.yml`                   | PR open / edit / sync                           | Validates the PR carries a Size label                          |
 | Release and Publish                | `release_and_publish.yml`                  | PR closed (merged) on `main`                    | Builds, bumps version, tags, publishes to npm + GitHub Release |
 | Check Packages Versions            | `check_packages_versions.yml`              | Schedule (Tue 15:00 UTC) + manual               | Opens an upgrade PR with `ncu:upgrade`                         |
@@ -20,19 +20,21 @@ All scheduled workflows run on Tuesdays UTC — that's the project's "maintenanc
 
 **Trigger:** every PR against `main` (open, sync, reopen). Concurrent runs cancel each other.
 
+Every job pins Node `24.16.0`, enables Corepack, and restores the pnpm store cache keyed on `pnpm-lock.yaml` before installing with `corepack pnpm install --frozen-lockfile`.
+
 **Jobs (sequential):**
 
-1. **Setup** — `npm install` with `node_modules` cached by `package-lock.json` hash
-2. **Validate Linters and Code Format** — runs `npm run eslint:check` then `npm run prettier:check`
-3. **Run tests** — runs `npm run test`
+1. **Setup** — `corepack pnpm install --frozen-lockfile` (pnpm store cached by `pnpm-lock.yaml` hash)
+2. **Validate Linters and Code Format** — runs `corepack pnpm run biome:check` (lint + format in one pass)
+3. **Run tests** — runs `corepack pnpm run build` first (to refresh `dist/` for the exports smoke test), then `corepack pnpm run test`
 
 **Locally equivalent to:**
 
 ```bash
-npm install
-npm run eslint:check
-npm run prettier:check
-npm run test
+corepack pnpm install --frozen-lockfile
+pnpm run biome:check
+pnpm run build
+pnpm run test
 ```
 
 A red Code Check blocks merge.
@@ -55,22 +57,24 @@ A red Code Check blocks merge.
 
 **Trigger:** PR closed on `main` with `pull_request.merged == true`. Concurrent runs cancel each other.
 
+Every job pins Node `24.16.0`, enables Corepack, restores the pnpm store cache keyed on `pnpm-lock.yaml`, and installs with `corepack pnpm install --frozen-lockfile`. The build and publish jobs additionally cache `dist/` (keyed on `pnpm-lock.yaml`) so the artifact carries from build → publish.
+
 **Jobs (sequential):**
 
 1. **Check PR Size Label** — same logic as `pull_request_check.yml`, captured here for the notification
 2. **Notify on channel - Start** — DailyBot message: deployment started
-3. **Deploy - Setup Application** — `npm install` (with cache)
-4. **Deploy - Validate Linters and Code Format** — `eslint:check` + `prettier:check`
-5. **Run tests** — `npm run test`
-6. **Build application bundle** — `npm run build` (webpack production → `dist/`); fails if `dist/` is missing
+3. **Deploy - Setup Application** — `corepack pnpm install --frozen-lockfile` (with pnpm-store cache)
+4. **Deploy - Validate Linters and Code Format** — `corepack pnpm run biome:check`
+5. **Run tests** — `corepack pnpm run build` then `corepack pnpm run test`
+6. **Build application bundle** — `corepack pnpm run build` (Vite bundle + `tsc` declarations → `dist/`); fails if `dist/` is missing
 7. **Release and Publish:**
    - Configure git as `🤖 DailyBot <ops@dailybot.com>`
    - Generate release notes via `.github/scripts/get_github_release_log.sh` → `git_logs_output.txt`
-   - `npm run release` (`npm version patch ...`)
+   - `corepack pnpm run release` (`.github/scripts/prepare_release.sh`: patch bump, release commit + tag)
    - `git push --follow-tags origin main`
    - Capture the new tag
    - Create GitHub release with `ncipollo/release-action@v1`
-   - `npm publish` (with `NODE_AUTH_TOKEN` from `NPM_TOKEN` secret)
+   - `corepack pnpm publish --no-git-checks` (with `NODE_AUTH_TOKEN` from `NPM_TOKEN` secret)
    - Delete the merged source branch
 8. **Cleanup caches** — fires the `cleanup_caches` repository_dispatch
 9. **Notify on channel - End** — DailyBot message: per-job status + npm version published
@@ -95,7 +99,7 @@ If `NPM_TOKEN` is unset, the publish step fails and no release goes out — the 
 **What it does:**
 
 - Checks out `main` with the automation token
-- Runs `npm-check-updates` honoring `.ncurc.json` (which rejects `chai` and `eslint`)
+- Runs `npm-check-updates` honoring `.ncurc.json`
 - If anything is outdated, creates / updates the `feature__packages_versions_update` branch
 - Pushes commits and opens a PR titled "Upgrading packages versions" (with the standard size label)
 
@@ -140,26 +144,30 @@ Useful for keeping the branch list short. The script is in the workflow body —
 | Script                                      | Called by                     | Purpose                                                            |
 | ------------------------------------------- | ----------------------------- | ------------------------------------------------------------------ |
 | `.github/scripts/get_github_release_log.sh` | `release_and_publish.yml`     | Generates `git_logs_output.txt` (release body) from merged commits |
+| `.github/scripts/prepare_release.sh`        | `release_and_publish.yml`     | Bumps the patch version, creates the release commit + tag (`pnpm run release`) |
 | `.github/scripts/get_packages_upgrades.sh`  | `check_packages_versions.yml` | Runs `ncu:upgrade`, captures the diff, formats the PR body         |
 
 When debugging a workflow, run these scripts locally first — they're plain bash and easy to step through.
 
 ## Caching strategy
 
-Every job that needs `node_modules` follows the same pattern:
+Every job enables Corepack and caches the pnpm content-addressable store. The store path is resolved at runtime and cached, keyed on `pnpm-lock.yaml`:
 
 ```yaml
+- name: Enable Corepack
+  run: corepack enable
+- name: Get pnpm store path
+  id: pnpm-store
+  run: echo "STORE_PATH=$(corepack pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 - uses: actions/cache@v5
   with:
-    path: |
-      ~/.npm
-      node_modules
-    key: ${{ runner.os }}-build-cache-node-modules-${{ hashFiles('**/package-lock.json') }}
+    path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+    key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
     restore-keys: |
-      ${{ runner.os }}-build-cache-node-modules-
+      ${{ runner.os }}-pnpm-store-
 ```
 
-The `dist/` output is also cached on the build job using the same `package-lock.json` hash, so `release_and_publish` re-uses it across the build → publish steps.
+The `dist/` output is also cached on the build job using the same `pnpm-lock.yaml` hash, so `release_and_publish` re-uses it across the build → publish steps.
 
 `Cleanup Caches` removes them after every release to keep the budget under GitHub's per-repo limit.
 
@@ -168,11 +176,10 @@ The `dist/` output is also cached on the build job using the same `package-lock.
 To run the same checks locally before pushing:
 
 ```bash
-npm install
-npm run eslint:check
-npm run prettier:check
-npm run test
-npm run build
+corepack pnpm install --frozen-lockfile
+pnpm run biome:check
+pnpm run build
+pnpm run test
 ```
 
 The release-only steps (npm publish, GitHub release, DailyBot notification) only run on the `main` merge — there's no way to dry-run them locally without `act` or similar.

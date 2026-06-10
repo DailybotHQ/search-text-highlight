@@ -1,13 +1,14 @@
 {
-  "mocha.files.glob": "./test/**/*.ts",
-  "mochaExplorer.files": "test/**/*.ts",
-  "mochaExplorer.require": "ts-node/register",
-  "mochaExplorer.timeout": 60000,
-  "mochaExplorer.logpanel": true,
   "files.trimTrailingWhitespace": true,
-  "prettier.singleQuote": true,
-  "prettier.semi": false,
   "editor.formatOnSave": true,
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.codeActionsOnSave": {
+    "quickfix.biome": "explicit",
+    "source.organizeImports.biome": "explicit"
+  },
+  "[typescript]": { "editor.defaultFormatter": "biomejs.biome" },
+  "[json]": { "editor.defaultFormatter": "biomejs.biome" },
+  "[jsonc]": { "editor.defaultFormatter": "biomejs.biome" },
   "cSpell.words": [
     "activar",
     "AUTOINCREMENT",

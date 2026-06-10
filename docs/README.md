@@ -15,9 +15,9 @@
 | -------------------------------------------------- | ------------------------------------------------------------ |
 | [ARCHITECTURE.md](ARCHITECTURE.md)                 | Module layout, public API surface, TypeScript build pipeline |
 | [TECHNOLOGIES.md](TECHNOLOGIES.md)                 | Stack overview with versions and roles                       |
-| [STANDARDS.md](STANDARDS.md)                       | TypeScript conventions, naming, ESLint/Prettier rules        |
-| [DEVELOPMENT_COMMANDS.md](DEVELOPMENT_COMMANDS.md) | Every npm script and what it does                            |
-| [TESTING_GUIDE.md](TESTING_GUIDE.md)               | Mocha + Chai conventions, single test runs                   |
+| [STANDARDS.md](STANDARDS.md)                       | TypeScript conventions, naming, Biome lint/format rules      |
+| [DEVELOPMENT_COMMANDS.md](DEVELOPMENT_COMMANDS.md) | Every pnpm script and what it does                           |
+| [TESTING_GUIDE.md](TESTING_GUIDE.md)               | Vitest conventions, single test runs                         |
 | [PERFORMANCE.md](PERFORMANCE.md)                   | Regex hot path, bundle size, Unicode safety                  |
 | [SECURITY.md](SECURITY.md)                         | Input validation, regex injection / ReDoS, npm supply chain  |
 
@@ -25,7 +25,7 @@
 
 | Document                           | Purpose                                                           |
 | ---------------------------------- | ----------------------------------------------------------------- |
-| [BUILD_DEPLOY.md](BUILD_DEPLOY.md) | Webpack production build, npm publish, GitHub release             |
+| [BUILD_DEPLOY.md](BUILD_DEPLOY.md) | Vite production build, npm publish, GitHub release                |
 | [CI_CD.md](CI_CD.md)               | GitHub Actions workflows: PR checks, release, dependency upgrades |
 | [DEVCONTAINER.md](DEVCONTAINER.md) | Docker-based dev environment with bundled AI CLIs                 |
 

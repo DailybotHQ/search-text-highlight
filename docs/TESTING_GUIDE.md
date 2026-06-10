@@ -1,47 +1,50 @@
 # Testing Guide
 
-How to write and run tests in `search-text-highlight`. The package ships with **Mocha + Chai** and runs TypeScript directly via `ts-node` — no precompile, no fixtures, no setup files.
+How to write and run tests in `search-text-highlight`. The package ships with **Vitest**, which runs TypeScript directly through the Vite pipeline — no precompile, no fixtures, no setup files.
 
 ## Where tests live
 
-| Location         | Compiled by            | Use                                               |
-| ---------------- | ---------------------- | ------------------------------------------------- |
-| `test/*.test.ts` | `ts-node` (on the fly) | All tests today; one file per public surface area |
+| Location         | Run by                | Use                                                    |
+| ---------------- | --------------------- | ------------------------------------------------------ |
+| `test/*.test.ts` | Vitest (Vite pipeline)| All tests; one file per public surface area            |
 
-The starter currently has only `test/main.test.ts`. Add more files when the suite grows past ~30 `it` blocks per file. Match the file name to the area being tested (e.g., `validation.test.ts`, `regex.test.ts`).
+There are two files today: `test/main.test.ts` (public API behavior) and `test/exports.test.ts` (a dual-export smoke test that runs against the built `dist/` bundle). Add more files when the suite grows past ~30 `it` blocks per file. Match the file name to the area being tested (e.g., `validation.test.ts`, `regex.test.ts`).
 
 ## Running tests
 
 ```bash
-npm run test             # All tests, one shot
-npm run test:watch       # Re-run on src/ or test/ change
+pnpm run test            # All tests, one shot (vitest run)
+pnpm run test:watch      # Re-run affected specs on src/ or test/ change (vitest)
 ```
 
 Run a single file:
 
 ```bash
-npx mocha --require ts-node/register test/main.test.ts --timeout 25000 --colors
+pnpm vitest run test/main.test.ts
 ```
 
-Run by description (`--grep`):
+Run by name (`-t` / `--testNamePattern`):
 
 ```bash
-npx mocha --require ts-node/register test/**.ts --timeout 25000 --colors --grep "unicode"
+pnpm test -- -t "unicode"
+# or, equivalently:
+pnpm vitest run -t "unicode"
 ```
 
-CI runs `npm run test` directly — no special flags.
+CI runs `pnpm run build` (to refresh `dist/` for the exports smoke test) followed by `pnpm run test` — no special flags.
 
 ## Conventions
 
-1. **Mirror the public surface.** `test/main.test.ts` covers `searchTextHL.highlight(...)`. New methods get their own file
-2. **One `describe(...)` per surface,** named after the area: `describe('Test search text highlight', () => { ... })`
-3. **One `it(...)` per behavior.** If a description needs "and", split it into two
-4. **Description in sentence case starting with `should`:** `it('should highlight one query substring', ...)`
-5. **Arrange / Act / Assert with blank lines between sections** when the test has more than three lines
-6. **Plain Chai `expect(...).to.equal(...)`.** Don't introduce `should` syntax (mixing styles makes failures harder to read)
+1. **Import the API explicitly.** Vitest runs without globals — start every spec with `import { describe, it, expect } from 'vitest'`
+2. **Mirror the public surface.** `test/main.test.ts` covers `searchTextHL.highlight(...)`. New methods get their own file
+3. **One `describe(...)` per surface,** named after the area: `describe('Test search text highlight', () => { ... })`
+4. **One `it(...)` per behavior.** If a description needs "and", split it into two
+5. **Description in sentence case starting with `should`:** `it('should highlight one query substring', ...)`
+6. **Arrange / Act / Assert with blank lines between sections** when the test has more than three lines
+7. **Plain `expect(...).toBe(...)` / `.toEqual(...)`.** Don't mix assertion styles — it makes failures harder to read
 
 ```ts
-import { expect } from 'chai'
+import { describe, it, expect } from 'vitest'
 import searchTextHL from '../src/index'
 
 describe('Test search text highlight', () => {
@@ -51,7 +54,7 @@ describe('Test search text highlight', () => {
 
     const result = searchTextHL.highlight(text, query)
 
-    expect(result).to.be.equal(
+    expect(result).toBe(
       'This is a simple but an <span class="text-highlight">amazing</span> tool for text highlight 😎.'
     )
   })
@@ -72,6 +75,7 @@ describe('Test search text highlight', () => {
 
 - Performance regressions on a large input (only when a perf-relevant change ships)
 - Cross-engine compatibility (Node vs browsers) — usually not needed; the bundle is plain CommonJS
+- Dual-export resolution against the built bundle — `test/exports.test.ts` already covers `require` + default import; extend it if the export shape changes
 
 **Rarely:**
 
@@ -79,13 +83,13 @@ describe('Test search text highlight', () => {
 
 ## Asserting thrown errors
 
-`expect(() => fn()).to.throw(Error)` covers the existing throw tests. Be specific when the message matters:
+`expect(() => fn()).toThrow(Error)` covers the existing throw tests. Be specific when the message matters:
 
 ```ts
-expect(() => searchTextHL.highlight(42 as any, '')).to.throw(/text parameter should be a string/i)
+expect(() => searchTextHL.highlight(42 as any, '')).toThrow(/text parameter should be a string/i)
 ```
 
-Use `as any` plus `// eslint-disable-line` if a test deliberately violates the type contract — that's how the existing suite tests invalid inputs.
+Use `as any` if a test deliberately violates the type contract — that's how the existing suite tests invalid inputs. Biome allows `any` (`noExplicitAny` is off), so no inline suppression is needed.
 
 ## Adding tests for a new option
 
@@ -103,48 +107,42 @@ it('should match only whole words when wholeWord is true', () => {
   const query = 'amazing'
   const result = searchTextHL.highlight(text, query, { wholeWord: true })
 
-  expect(result).to.be.equal('<span class="text-highlight">amazing</span> amazingly amazement')
+  expect(result).toBe('<span class="text-highlight">amazing</span> amazingly amazement')
 })
 
 it('should throw when wholeWord is not a boolean', () => {
   expect(() => {
     searchTextHL.highlight('text', 'q', { wholeWord: 'true' as any })
-  }).to.throw(Error)
+  }).toThrow(Error)
 })
 ```
 
 ## Async / coroutine code
 
-The library is synchronous and the suite is too. If you ever introduce async behavior, switch to Mocha's promise-based form:
+The library is synchronous and the suite is too. If you ever introduce async behavior, return or `await` the promise:
 
 ```ts
 it('should resolve with the highlighted result', async () => {
   const result = await searchTextHL.highlightAsync('text', 'q')
-  expect(result).to.equal('...')
+  expect(result).toBe('...')
 })
 ```
 
-Don't use callback-style `done` — promise-based tests are clearer.
+Vitest awaits returned promises automatically — there's no callback-style `done` to manage.
 
 ## Snapshot / golden-file testing
 
-Not wired today. If a feature needs it (e.g., comparing against a large generated HTML blob), add `chai-snapshot-tests` or write a simple helper that reads `test/__golden__/*.html`. Document the choice in [Technologies](TECHNOLOGIES.md).
+Vitest has snapshots built in (`expect(value).toMatchSnapshot()` / `.toMatchInlineSnapshot()`). Reach for them only when comparing against a large generated HTML blob; for the small outputs this library produces, an explicit `expect(...).toBe(...)` reads better. Document any new snapshot usage in [Technologies](TECHNOLOGIES.md).
 
 ## Coverage
 
-No coverage tool is wired. To add `c8` (built on V8's native coverage):
-
-```bash
-npm install --save-dev c8
-```
-
-Then add a script to `package.json`:
+Vitest bundles V8-based coverage; no extra dependency is needed for the provider. Add a script to `package.json`:
 
 ```json
-"test:coverage": "c8 --reporter=text --reporter=html npm run test"
+"test:coverage": "vitest run --coverage"
 ```
 
-Update [Technologies](TECHNOLOGIES.md) and [Development Commands](DEVELOPMENT_COMMANDS.md) when you do.
+The first run prompts to install `@vitest/coverage-v8` — pin it as a `devDependency`. Update [Technologies](TECHNOLOGIES.md) and [Development Commands](DEVELOPMENT_COMMANDS.md) when you wire it.
 
 ## Speed
 
@@ -153,15 +151,15 @@ The whole suite runs in <1s on a warm machine. If a single test crosses 1s, it's
 ## Pre-push standard
 
 ```bash
-npm run test
+pnpm run test
 ```
 
 If it fails, the work isn't done. The Code Check workflow blocks the PR on failure.
 
 ## Common pitfalls
 
-1. **Forgetting `--require ts-node/register`** when invoking Mocha directly — `import` statements throw `SyntaxError`. Use `npm run test` or include the flag
-2. **Importing from `dist/`** — tests should import from `../src/index`, not the built bundle. Otherwise you're testing yesterday's code
+1. **Forgetting the explicit Vitest import** — specs run without globals, so omitting `import { describe, it, expect } from 'vitest'` throws `ReferenceError`
+2. **Importing from `dist/` in behavior specs** — `test/main.test.ts` should import from `../src/index`, not the built bundle, or you're testing yesterday's code. (`test/exports.test.ts` is the deliberate exception — it verifies the published bundle.)
 3. **Asserting on regex modifiers indirectly** — assert on the rendered HTML, not on the regex object internals
 4. **Hard-coding the emoji 😎** — that one's a feature, but if you add Unicode tests, prefer code-pointed escapes (`'\u{1F60E}'`) for portability across editors
 5. **Sharing mutable state across tests** — every `it` should set up its own inputs. Don't hoist a `let result` to module scope

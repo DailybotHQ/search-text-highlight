@@ -190,7 +190,7 @@ const options: OptionsType = { matchAll: false }
 
 ## Backwards compatibility
 
-The signature, option names, option defaults, and rendered output format are part of the contract. Changes to any of them require a **major version bump**. The release workflow runs `npm version patch` by default; for major / minor releases run `npm version major` / `npm version minor` manually with the same `-m` template before merging.
+The signature, option names, option defaults, and rendered output format are part of the contract. Changes to any of them require a **major version bump**. The release workflow runs `.github/scripts/prepare_release.sh` (a Node-based patch bump that preserves the `[🤖 DailyBot] New release to vX.Y.Z launched 🚀` commit + tag) by default; for major / minor releases bump the `version` field in `package.json` and create the matching tag manually before merging.
 
 ## Roadmap (non-binding)
 

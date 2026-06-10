@@ -2,148 +2,142 @@
 
 Real problems encountered while developing on `search-text-highlight`, with the exact fix for each. If you're hitting something not listed here, open an issue.
 
-> Most setup pain comes from Node version mismatches or stale `node_modules`. When in doubt, blow away `node_modules` and `package-lock.json` (locally only — never commit a deleted lockfile), reinstall, and retest.
+> Most setup pain comes from Node version mismatches or stale `node_modules`. When in doubt, blow away `node_modules` and `pnpm-lock.yaml` (locally only — never commit a deleted lockfile), reinstall with `corepack pnpm install`, and retest.
 
 ---
 
-## `npm install` fails with `EBADENGINE`
+## `corepack pnpm install` fails with `EBADENGINE` (or a Node version warning)
 
 **Symptom:**
 
-```
-npm warn EBADENGINE Unsupported engine {
-  package: 'search-text-highlight@2.0.8',
-  required: { node: '24.15.0' },
-  current: { node: 'v18.x.x' }
-}
+```text
+ WARN  Unsupported engine: wanted: {"node":">=22.0.0"} (current: {"node":"v18.x.x"})
 ```
 
-**Cause:** `package.json` declares `"engines": { "node": "24.15.0" }`. npm warns when the host Node doesn't match.
+**Cause:** `package.json` declares `"engines": { "node": ">=22.0.0" }`. pnpm warns when the host Node is below that floor.
 
-**Fix:** install Node 24.15.0 (use `nvm`, `volta`, or your platform's package manager):
+**Fix:** install Node 24.16.0 (the version pinned in `.node-version` / `.nvmrc`; use `nvm`, `volta`, or your platform's package manager):
 
 ```bash
-nvm install 24.15.0
-nvm use 24.15.0
-node --version            # should print v24.15.0
+nvm install 24.16.0
+nvm use 24.16.0
+node --version            # should print v24.16.0
+corepack enable           # activate pnpm@11.1.2
 ```
 
-The warning is informational, not blocking — other Node versions may work for local hacking, but CI uses 24.15.0 and tests there are authoritative. Match versions to avoid surprises.
+The warning is informational, not blocking — Node 22+ may work for local hacking, but CI and the devcontainer use 24.16.0 and tests there are authoritative. Match versions to avoid surprises.
 
 ---
 
-## `npm run test` fails with `Error: Cannot find module 'ts-node/register'`
+## `corepack pnpm` is not found / wrong pnpm version
 
-**Symptom:**
+**Symptom:** `corepack: command not found`, or `pnpm` runs a version other than `11.1.2`.
 
-```
-Error: Cannot find module 'ts-node/register'
-Require stack:
-- /app/node_modules/mocha/bin/mocha.js
-```
-
-**Cause:** `node_modules` is partial — possibly the previous `npm install` was interrupted.
+**Cause:** Corepack isn't enabled, so the pinned `"packageManager": "pnpm@11.1.2"` isn't being honored.
 
 **Fix:**
 
 ```bash
-rm -rf node_modules package-lock.json     # only delete lockfile if local
-npm install
-npm run test
+corepack enable            # one-time; Corepack ships with Node 24
+corepack pnpm --version    # should print 11.1.2
 ```
 
-If the issue persists, your npm cache might be poisoned:
-
-```bash
-npm cache clean --force
-rm -rf node_modules
-npm install
-```
+Corepack reads the `packageManager` field and downloads the exact pinned pnpm. Don't `npm install -g pnpm` — that bypasses the pin and can drift from CI.
 
 ---
 
-## ESLint fails with `Parsing error: Cannot read file 'tsconfig.json'`
-
-**Symptom:** ESLint can't resolve TypeScript config when run from a subdirectory.
-
-**Cause:** `@typescript-eslint/parser` looks for `tsconfig.json` in the working directory.
-
-**Fix:** run ESLint from the repo root:
-
-```bash
-cd /path/to/search-text-highlight   # not a subdirectory
-npm run eslint:check
-```
-
-If you must run from elsewhere, pass the absolute path:
-
-```bash
-npx eslint --ext .ts /path/to/search-text-highlight/src
-```
-
----
-
-## Prettier rewrites the README into a single line
-
-**Symptom:** running `npm run prettier:fix` collapses tables or destroys intentional whitespace in `README.md`.
-
-**Cause:** Prettier 3 changed Markdown defaults; complex tables sometimes get reflowed.
-
-**Fix:** wrap the affected section in Prettier ignore comments:
-
-```md
-<!-- prettier-ignore-start -->
-| Name    | Type   | Default | Description                           |
-| :------ | :----- | :------ | :------------------------------------ |
-| text    | string | ''      | base message                          |
-| query   | string | ''      | substring for highlight in message    |
-<!-- prettier-ignore-end -->
-```
-
-This is already used implicitly in some doc tables. When in doubt, prefer Prettier's reflow — only override when it materially harms readability.
-
----
-
-## Webpack build fails with `Module not found: Error: Can't resolve './lib/type'`
+## `corepack pnpm install` skips a build script (`ERR_PNPM_IGNORED_BUILDS`)
 
 **Symptom:**
 
-```
-ERROR in ./src/index.ts
-Module not found: Error: Can't resolve './lib/type' in '/app/src'
+```text
+ WARN  Ignored build scripts: esbuild.
+ Run "pnpm approve-builds" to pick which dependencies should be allowed.
 ```
 
-**Cause:** the `.ts` extension is missing from the `resolve.extensions` array in `webpack.config.js`, or `node_modules` is stale.
+**Cause:** pnpm 11+ refuses to run a dependency's install/build script unless it's on the allow-list. This repo curates that list in `pnpm-workspace.yaml` under `allowBuilds`.
+
+**Fix:** the repo already allows `esbuild` (pulled in by Vite):
+
+```yaml
+allowBuilds:
+  esbuild: true
+```
+
+If a new dependency reports an ignored build you genuinely need, add it to `allowBuilds` and document why. Don't blanket-approve every script — that defeats the supply-chain guard. See the [supply-chain rationale](https://xergioalex.com/blog/supply-chain-attacks-ai-era/).
+
+---
+
+## Biome reports errors that the CLI doesn't, or vice versa
+
+**Symptom:** the editor highlights lint/format issues that `corepack pnpm run biome:check` doesn't report (or the reverse).
+
+**Cause:** the Biome VS Code extension may use a different Biome binary than the one in `node_modules`, or `node_modules` is stale.
+
+**Fix:**
+
+1. Make sure the workspace Biome version is installed: `corepack pnpm install`
+2. Reload the Biome extension: `Cmd/Ctrl+Shift+P` → `Biome: Restart LSP server`
+3. Run the same command CI runs from the project root: `corepack pnpm run biome:check`
+
+If you must run Biome directly, do it from the repo root so it picks up `biome.json`:
+
+```bash
+corepack pnpm exec biome check src test
+```
+
+---
+
+## Biome reformats a table or block you laid out intentionally
+
+**Symptom:** running `corepack pnpm run biome:fix` reflows a Markdown table or destroys intentional whitespace.
+
+**Cause:** the formatter normalizes whitespace. Biome only formats the file types listed in `biome.json`'s `files.includes` — Markdown under `docs/` is not in that set today, so prose tables are generally safe — but a fenced code block inside a `.ts`/`.json` file will be reformatted.
+
+**Fix:** wrap the affected region in Biome ignore comments:
+
+```ts
+// biome-ignore format: intentional alignment
+const table = [
+  //...
+]
+```
+
+When in doubt, prefer the formatter's output — only override when it materially harms readability.
+
+---
+
+## Vite build fails with `Could not resolve './lib/type'`
+
+**Symptom:**
+
+```text
+[vite]: Rollup failed to resolve import "./lib/type" from "src/index.ts".
+```
+
+**Cause:** `node_modules` is stale, or the import path lost its module resolution (Vite resolves `.ts` automatically — a missing file or a typo'd path is the usual culprit).
 
 **Fix:**
 
 ```bash
 rm -rf node_modules dist
-npm install
-npm run build
+corepack pnpm install
+corepack pnpm run build
 ```
 
-If still broken, verify `webpack.config.js` has:
-
-```js
-resolve: {
-  extensions: ['.tsx', '.ts', '.js'],
-}
-```
-
-That's the default in this repo — don't remove it.
+If still broken, check that the imported file exists and the path matches exactly (`src/lib/type.ts`). The build config lives in `vite.config.ts` (bundle) and `tsconfig.build.json` (declarations) — don't hand-edit `dist/`.
 
 ---
 
-## Mocha test passes locally but fails in CI
+## Vitest passes locally but fails in CI
 
-**Symptom:** `npm run test` is green on your machine, red on GitHub Actions.
+**Symptom:** `corepack pnpm run test` is green on your machine, red on GitHub Actions.
 
 **Common causes:**
 
-1. **Different Node version.** CI uses 24.15.0. Run `nvm use 24.15.0` and retry locally
+1. **Different Node version.** CI uses 24.16.0. Run `nvm use 24.16.0` and retry locally
 2. **Locale-sensitive output.** If a test compares strings with case differences, the locale matters. Check `LANG` / `LC_ALL`
-3. **Date / timezone in tests.** None today; but if you add one, freeze time with a fixed `Date` or use `sinon.useFakeTimers`
+3. **Date / timezone in tests.** None today; but if you add one, freeze time with `vi.useFakeTimers()`
 4. **Race condition.** None today (the library is synchronous); if a future async path flakes, look for shared state between tests
 
 Re-run the failing job with debug logs from the GitHub Actions UI. The output usually reveals the difference.
@@ -184,11 +178,11 @@ npm error 403 You cannot publish over the previously published versions: 2.0.8
 **Fix:** bump the version and try again:
 
 ```bash
-npm version patch
-npm publish
+corepack pnpm version patch
+corepack pnpm publish
 ```
 
-If you got here from CI, the `release_and_publish.yml` workflow runs `npm version patch` automatically — this error usually means a previous run published successfully but the workflow continued past the failure. Inspect the published versions on `npmjs.com` and only re-run the workflow if a true publish gap exists.
+If you got here from CI, the `release_and_publish.yml` workflow bumps the version automatically (via `.github/scripts/prepare_release.sh`) — this error usually means a previous run published successfully but the workflow continued past the failure. Inspect the published versions on `npmjs.com` and only re-run the workflow if a true publish gap exists.
 
 ---
 
@@ -233,6 +227,8 @@ If the apt error mentions a package not found, the upstream Debian repos may hav
 FROM node:24.16.0-trixie-slim
 ```
 
+> The devcontainer routes bare `npm` to `corepack pnpm` via a wrapper at `/usr/local/bin/npm`, and runs `corepack enable` during the build. If the wrapper is missing after a custom rebuild, run `corepack enable` inside the container and re-source `~/.bashrc`.
+
 ---
 
 ## `git status` shows the entire repo as modified after switching branches
@@ -268,69 +264,69 @@ The repo's `.editorconfig` enforces LF (`end_of_line = lf`) — IDE-side EditorC
 **Fix:**
 
 ```bash
-rm -rf dist
-npm run build:tsc
+rm -rf dist tsconfig.tsbuildinfo
+corepack pnpm run build:tsc
 ```
 
 If the issue persists, restart your editor's TypeScript server. In VS Code: `Cmd/Ctrl+Shift+P` → `TypeScript: Restart TS Server`.
 
 ---
 
-## `npm run release` made a tag but CI didn't publish
+## `corepack pnpm run release` made a tag but CI didn't publish
 
-**Symptom:** running `npm run release` locally creates a commit + tag, but no npm publish happened.
+**Symptom:** running `corepack pnpm run release` locally creates a commit + tag, but no npm publish happened.
 
-**Cause:** local `npm run release` only bumps the version. The `release_and_publish.yml` workflow triggers on `pull_request closed (merged)`, not on tag push.
+**Cause:** local `release` only bumps the version (it runs `.github/scripts/prepare_release.sh`). The `release_and_publish.yml` workflow triggers on `pull_request closed (merged)`, not on tag push.
 
-**Fix:** push your local commit through a PR to `main`. The merge triggers the workflow, which then runs **another** `npm run release` (so version becomes the next patch, not the one you bumped). To avoid double-bumping:
+**Fix:** push your local commit through a PR to `main`. The merge triggers the workflow, which then runs **another** release bump (so version becomes the next patch, not the one you bumped). To avoid double-bumping:
 
-1. Don't run `npm run release` locally — let CI do it
+1. Don't run `corepack pnpm run release` locally — let CI do it
 2. Or coordinate with maintainers to skip the workflow's release step
 
 For minor / major releases, the recommended path is:
 
-1. Manually edit `package.json` version (`npm version minor` or `npm version major`)
-2. Coordinate with maintainers — typically by removing the workflow's `npm run release` step in a separate PR for that release window
+1. Bump the version explicitly (`corepack pnpm version minor` or `corepack pnpm version major`)
+2. Coordinate with maintainers — typically by removing the workflow's release step in a separate PR for that release window
 
 ---
 
-## Mocha hangs at the end with no output
+## Vitest hangs at the end with no output
 
 **Symptom:** all tests pass but the process never exits.
 
 **Cause:** an open handle (a `setInterval`, an unclosed file descriptor, a lingering promise). The library is synchronous — this should not happen unless a new feature introduced async work.
 
-**Fix:** add `--exit` to the Mocha invocation:
+**Fix:** Vitest's `run` mode exits on its own; if it hangs, surface the open handles:
 
 ```bash
-npx mocha --require ts-node/register test/**.ts --timeout 25000 --colors --exit
+corepack pnpm exec vitest run --reporter verbose
 ```
 
-Then **find the actual leak** — `--exit` masks bugs. Hunt with:
+Then **find the actual leak**. Vitest can report dangling timers/handles — enable Node's `--trace-warnings` to locate them:
 
 ```bash
-npx mocha --require ts-node/register test/**.ts --timeout 25000 --colors --reporter min --exit-after-test
+node --trace-warnings node_modules/.bin/vitest run
 ```
 
-If you can't find it, run with Node's `--trace-warnings`:
+If a single spec is the culprit, isolate it:
 
 ```bash
-node --trace-warnings node_modules/.bin/mocha --require ts-node/register test/**.ts --timeout 25000
+corepack pnpm exec vitest run test/main.test.ts
 ```
 
 ---
 
-## VS Code shows ESLint errors that don't appear from CLI
+## VS Code shows Biome errors that don't appear from CLI
 
-**Symptom:** the editor highlights errors that `npm run eslint:check` doesn't report.
+**Symptom:** the editor highlights errors that `corepack pnpm run biome:check` doesn't report.
 
-**Cause:** the ESLint VS Code extension uses its own lockfile resolution, which can diverge from `npm install` results.
+**Cause:** the Biome VS Code extension may resolve a different Biome binary than the one in the workspace `node_modules`.
 
 **Fix:**
 
-1. Reload the ESLint extension: `Cmd/Ctrl+Shift+P` → `ESLint: Restart ESLint Server`
-2. Verify the extension is reading the right `node_modules`: VS Code Settings → search for `eslint.nodePath` and unset it
-3. If the discrepancy persists, run `npm run eslint:check` from the same terminal VS Code launched — that mirrors the extension's environment
+1. Reload the Biome extension: `Cmd/Ctrl+Shift+P` → `Biome: Restart LSP server`
+2. Verify the extension is using the workspace version (Biome reads `biome.json` from the project root)
+3. If the discrepancy persists, run `corepack pnpm run biome:check` from the same terminal VS Code launched — that mirrors the extension's environment
 
 ---
 
@@ -339,4 +335,4 @@ node --trace-warnings node_modules/.bin/mocha --require ts-node/register test/**
 1. Re-read the relevant section of [Environment Setup](ENVIRONMENT_SETUP.md) — most issues come from a missed step
 2. Run the sanity-check commands from [Environment Setup → Final sanity checklist](ENVIRONMENT_SETUP.md#final-sanity-checklist) to isolate which layer is broken
 3. Try the devcontainer if you were on a native install (or vice versa) — the layer that's broken usually becomes obvious
-4. Open an issue with: your `node --version`, your `npm --version`, the failing command's full output, and your platform
+4. Open an issue with: your `node --version`, your `corepack pnpm --version`, the failing command's full output, and your platform

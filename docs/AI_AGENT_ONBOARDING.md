@@ -7,8 +7,8 @@ Whether you're Claude Code, Cursor, Codex, Gemini, GitHub Copilot, or any other 
 1. **Read [`AGENTS.md`](../AGENTS.md)** — the non-negotiable rules. Don't skip it.
 2. **This is a TypeScript / npm library** that exports one function: `searchTextHL.highlight(text, query, options)`. It wraps regex matches in HTML.
 3. **Three source files only:** `src/index.ts` (entry), `src/lib/utils.ts` (validation + defaults), `src/lib/type.ts` (interfaces). New options touch all three.
-4. **Versions live in `package.json`** — never inline a literal version anywhere else.
-5. **Test inner loop:** `npm run test:watch` (or `npm run test` for one-shot).
+4. **Versions live in `package.json`** — never inline a literal version anywhere else. The package manager is pinned (`"packageManager": "pnpm@11.1.2"`) and activated via Corepack.
+5. **Test inner loop:** `corepack pnpm run test:watch` (or `corepack pnpm run test` for one-shot, via Vitest).
 6. **`tmp/` is git-ignored scratch space** — put throw-away files there, never anywhere else.
 
 ## In ten minutes (recommended pre-task reading)
@@ -23,7 +23,7 @@ Whether you're Claude Code, Cursor, Codex, Gemini, GitHub Copilot, or any other 
 1. **Identify which file the change belongs in.** Logic = `src/index.ts`. Validation = `src/lib/utils.ts`. New types = `src/lib/type.ts`. New tests = `test/main.test.ts`
 2. **Check if a skill matches.** See [`.agents/README.md`](../.agents/README.md). If yes, follow its procedure file step-by-step
 3. **Plan briefly.** What files will you touch? What's the test strategy?
-4. **Pick the inner loop.** Logic-only? `npm run test:watch`. Type-only? `npm run build:tsc`. Lint-only? `npm run eslint:fix`
+4. **Pick the inner loop.** Logic-only? `corepack pnpm run test:watch`. Type-only? `corepack pnpm run build:tsc`. Lint/format-only? `corepack pnpm run biome:fix`
 
 ## During the task
 
@@ -31,20 +31,19 @@ Whether you're Claude Code, Cursor, Codex, Gemini, GitHub Copilot, or any other 
 - **Run tests after every meaningful change.** Don't accumulate unverified changes
 - **If you add an option, it must touch all three source files plus a test**
 - **If you change a regex, audit for ReDoS** (see [Security](SECURITY.md#regex-injection--redos))
-- **If you bump a dependency, edit only `package.json`** then `npm install` to refresh the lockfile
+- **If you bump a dependency, edit only `package.json`** then `corepack pnpm install` to refresh `pnpm-lock.yaml`
 
 ## Before claiming "done"
 
 Run the pre-commit checklist from `AGENTS.md`:
 
 - [ ] All code, comments, and identifiers in English
-- [ ] `npm run eslint:check` passes
-- [ ] `npm run prettier:check` passes
-- [ ] `npm run build:tsc` succeeds
-- [ ] `npm run test` passes
-- [ ] `npm run build` succeeds (production bundle)
+- [ ] `corepack pnpm run biome:check` passes (lint + format)
+- [ ] `corepack pnpm run build:tsc` succeeds
+- [ ] `corepack pnpm run test` passes (Vitest)
+- [ ] `corepack pnpm run build` succeeds (Vite bundle + tsc declarations)
 - [ ] If you added an option, `OptionsType`, `Utils.validate.options`, `Utils.getOptions`, [API Reference](API_REFERENCE.md), README, and a test all reflect it
-- [ ] If you added a dependency, `package.json` and `package-lock.json` are both updated
+- [ ] If you added a dependency, `package.json` and `pnpm-lock.yaml` are both updated
 - [ ] No `console.*` calls in source
 - [ ] No `dist/` or `.env` staged
 - [ ] Documentation updated for any architectural change
@@ -58,7 +57,7 @@ Run the pre-commit checklist from `AGENTS.md`:
 2. Extend `Utils.validate.options` in `src/lib/utils.ts` (English error message)
 3. Add the default in `Utils.getOptions`
 4. Use it in `src/index.ts`
-5. Add a Mocha test for default behavior, explicit override, and validation error
+5. Add a Vitest test for default behavior, explicit override, and validation error
 6. Update [API Reference](API_REFERENCE.md), README options table, and (if it's a default change) the changelog
 7. Use the `/add-option` skill — it walks through all of this
 
@@ -72,9 +71,9 @@ Run the pre-commit checklist from `AGENTS.md`:
 
 ### Bumping a dependency
 
-1. Edit `package.json` (or `npm run ncu:upgrade` for a batch)
-2. `npm install` to refresh `package-lock.json`
-3. `npm run eslint:check && npm run prettier:check && npm run build:tsc && npm run test && npm run build`
+1. Edit `package.json` (or `corepack pnpm run ncu:upgrade` for a batch)
+2. `corepack pnpm install` to refresh `pnpm-lock.yaml`
+3. `corepack pnpm run biome:check && corepack pnpm run build:tsc && corepack pnpm run test && corepack pnpm run build`
 4. Document in [Technologies](TECHNOLOGIES.md) if a major version
 5. Use the `/bump-deps` skill for a guided workflow
 
@@ -82,7 +81,7 @@ Run the pre-commit checklist from `AGENTS.md`:
 
 1. Add a failing test that reproduces the bug
 2. Make the smallest change that turns it green
-3. Run `npm run test` against the rest of the suite — make sure no other test broke
+3. Run `corepack pnpm run test` against the rest of the suite — make sure no other test broke
 4. If your fix changes the regex pattern, **audit for ReDoS** with adversarial inputs ([Security](SECURITY.md#regex-injection--redos))
 5. If the fix changes observable behavior (output for any input that previously matched), it's a major bump
 
@@ -98,9 +97,12 @@ Is the change adding an interface or modifying an option type?
                 └── No  → It's a test → test/main.test.ts (or a new test file)
 
 Is the change about how the package is built / shipped / released?
-├── webpack-only       → webpack.config.js
-├── tsconfig-only      → tsconfig.json
+├── bundling-only      → vite.config.ts
+├── declarations/types → tsconfig.build.json (+ tsconfig.json for shared options)
+├── test runner        → vitest.config.ts
+├── lint / format      → biome.json
 ├── npm publishing     → package.json + .npmignore
+├── package manager    → package.json "packageManager" + pnpm-workspace.yaml
 ├── CI                 → .github/workflows/*.yml
 └── docker             → docker/local/* + docker/custom_commands.sh
 
@@ -113,7 +115,7 @@ Is it documentation?
 | Tool         | Use                                      |
 | ------------ | ---------------------------------------- |
 | Read         | Read code or docs to understand context  |
-| Bash         | Run `npm`, `git`, `node`, `find`, `grep` |
+| Bash         | Run `corepack pnpm`, `git`, `node`, `find`, `grep` |
 | Edit / Write | Modify files                             |
 | Grep / Find  | Locate code by pattern                   |
 
@@ -124,8 +126,9 @@ Before bulk changes, read the relevant section of `AGENTS.md` and the doc it lin
 - **Auto-escaping `query`.** Existing tests rely on regex syntax (the emoji test, the `'a'` test). Auto-escaping is a major version bump and an opt-in option, never a default
 - **Sanitizing `htmlTag` / `hlClass`.** Same story — major version bump, opt-in
 - **Removing `.babelrc`.** It's there for downstream consumers' Babel pipelines. Don't drop it without consulting maintainers
-- **Bumping `chai` or `eslint`.** `.ncurc.json` rejects them deliberately. Read the why before unrejecting
-- **Editing `dist/`.** It's regenerated. Your edits will vanish on the next `npm run build`
+- **Adding a runtime dependency.** The package ships with zero `dependencies`; pnpm's supply-chain guard plus the bundle-size limit make a new dep a deliberate, documented decision
+- **Loosening the supply-chain guard.** `pnpm-workspace.yaml` sets `minimumReleaseAge: 10080` (only versions published ≥1 week ago) and an `allowBuilds` allow-list. Don't relax either without reading the [rationale](https://xergioalex.com/blog/supply-chain-attacks-ai-era/)
+- **Editing `dist/`.** It's regenerated. Your edits will vanish on the next `corepack pnpm run build`
 - **Manually publishing.** CI publishes from `main`. Manual publish requires careful coordination
 
 ## Asking for clarification

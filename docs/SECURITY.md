@@ -115,9 +115,20 @@ When you add an option:
 ## Dependencies
 
 - The package has **zero `dependencies`**. Adding one is a security event — it expands the supply-chain surface for every consumer
-- All `devDependencies` are pinned in `package.json`; the resolution is locked in `package-lock.json` (committed)
-- `.ncurc.json` rejects `chai` and `eslint` major bumps — those are deliberate freezes with documented reasons
-- The CI workflow does **not** run `npm install --no-audit`; npm's built-in audit warnings appear in CI logs
+- All `devDependencies` are pinned in `package.json`; the resolution is locked in `pnpm-lock.yaml` (committed)
+- pnpm is provided by **Corepack** and pinned via `package.json`'s `packageManager` field — never install pnpm globally
+- `.ncurc.json` records the upgrade policy — deliberate freezes carry documented reasons
+
+### pnpm supply-chain guards
+
+`pnpm-workspace.yaml` configures two defenses against compromised packages:
+
+| Guard               | Value   | Effect                                                                                                  |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------------------ |
+| `minimumReleaseAge` | `10080` | New installs/updates only resolve versions published **≥ 1 week** ago — blocks freshly-pushed malware that gets yanked within days. The existing lockfile is still respected. |
+| `allowBuilds`       | `{ esbuild: true }` | pnpm 11+ refuses to run a package's install/build scripts unless explicitly allow-listed. Only `esbuild` (pulled in by Vite) is permitted to run its postinstall. |
+
+When a new dependency emits an `[ERR_PNPM_IGNORED_BUILDS]` warning during `corepack pnpm install`, audit the package first, then add it to `allowBuilds` only if it genuinely needs an install script. Background: <https://xergioalex.com/blog/supply-chain-attacks-ai-era/>.
 
 ### Adding a dependency
 
@@ -125,10 +136,11 @@ Before adding any package:
 
 1. Read its source. Most npm packages are small enough to skim
 2. Check its publish history on `npmjs.com` — recent maintainer churn is a red flag
-3. Run `npm view <package> repository.url` and verify the GitHub repo matches
+3. Run `corepack pnpm view <package> repository.url` and verify the GitHub repo matches
 4. Check open CVEs at `https://www.npmjs.com/advisories` or `https://github.com/advisories`
 5. Pin to a specific version (no `^` ranges in this repo's `package.json`)
-6. Update [Technologies](TECHNOLOGIES.md) and [AGENTS.md](../AGENTS.md) in the same PR
+6. Remember `minimumReleaseAge` blocks versions newer than a week — that's intentional, don't override it to rush an install
+7. Update [Technologies](TECHNOLOGIES.md) and [AGENTS.md](../AGENTS.md) in the same PR
 
 ### Dependabot / Renovate
 
@@ -138,15 +150,15 @@ The repo uses an internal weekly automation (`check_packages_versions.yml`) inst
 2. Tuesday 20:00 UTC — auto-merges if `Code Check` passes
 3. Otherwise the PR sits for human review
 
-Don't disable `.ncurc.json`'s `reject` list without considering the migration cost (ESLint 9 = flat config; Chai 5 = ESM-only).
+Don't relax `.ncurc.json` or the `minimumReleaseAge` guard without weighing the supply-chain and migration cost.
 
 ## npm publish security
 
 - Publishing requires `NPM_TOKEN` (a secret in GitHub). Rotate it annually
 - The token has publish access only to `search-text-highlight`. It should not be a global token
-- `npm publish` runs from CI on `main` only. There's no manual publish in the developer workflow
+- `corepack pnpm publish --no-git-checks` runs from CI on `main` only. There's no manual publish in the developer workflow
 - **Two-factor on the npm account is required** for the maintainer account that owns the package
-- **Provenance** (`npm publish --provenance`) is not enabled today. Enabling it requires the workflow to run with `id-token: write` — an easy improvement worth filing as an issue
+- **Provenance** (`pnpm publish --provenance`) is not enabled today. Enabling it requires the workflow to run with `id-token: write` — an easy improvement worth filing as an issue
 
 ## Secrets
 
@@ -162,8 +174,8 @@ If you accidentally commit a secret:
 
 ## Logging
 
-- `no-console: error` (ESLint) blocks `console.log` in `src/`. The library does not log
-- Tests are allowed to print via Mocha's reporter; that's fine — they don't ship
+- Biome's `noConsole: error` blocks `console.log` in `src/`. The library does not log
+- Tests are allowed to print (`noConsole` is off for `test/**`); that's fine — they don't ship
 - Don't `console.error(input)` — even an error path could expose untrusted input
 
 ## Reporting vulnerabilities
@@ -177,8 +189,9 @@ The maintainer will acknowledge within a week and aim to ship a fix in the next 
 - [ ] No new `dependencies` (or one was added with documented reason)
 - [ ] No new place where consumer-provided strings reach the regex engine without an explicit consumer-side escape recommendation
 - [ ] No new place where consumer-provided strings reach the HTML output without documentation
-- [ ] `package-lock.json` updated alongside `package.json`
+- [ ] `pnpm-lock.yaml` updated alongside `package.json`
+- [ ] Any new package needing an install script is reviewed and added to `allowBuilds` deliberately
 - [ ] Validation tests still cover every option key
 - [ ] No `console.*` calls slipped in
 - [ ] `.env` and `dist/` are not staged
-- [ ] `npm pack --dry-run` shows the expected files only
+- [ ] `corepack pnpm pack --dry-run` shows the expected files only

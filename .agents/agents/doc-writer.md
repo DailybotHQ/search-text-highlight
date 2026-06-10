@@ -90,7 +90,7 @@ Use `` `code spans` `` for:
 
 - Filenames: `` `src/index.ts` ``
 - Identifiers: `` `OptionsType`, `searchTextHL.highlight` ``
-- npm scripts: `` `npm run test` ``
+- npm scripts: `` `corepack pnpm run test` ``
 - Shell commands within prose
 
 ### Links
@@ -102,7 +102,7 @@ Use `` `code spans` `` for:
 ### Voice
 
 - **Decisive.** "Use X" beats "you might consider X"
-- **Imperative for instructions.** "Run `npm test`" beats "the test command can be run"
+- **Imperative for instructions.** "Run `corepack pnpm run test`" beats "the test command can be run"
 - **Concrete.** Include exact file paths, command invocations, example code
 - **English.** Don't translate — the package is English-only
 
@@ -121,7 +121,7 @@ Block doc-only PRs that:
 - Translate the docs to another language (English-only)
 - Add ASCII art that doesn't render well in GitHub's Markdown viewer
 - Embed external images / GIFs (use repo-hosted images in `assets/` if absolutely necessary)
-- Re-flow tables that were intentionally laid out (Prettier may try; respect the human's intent)
+- Re-flow tables that were intentionally laid out (Biome's formatter may try; respect the human's intent)
 
 Block code PRs that:
 
@@ -152,8 +152,8 @@ Block code PRs that:
 
 1. Add a row to the Options table in [`docs/API_REFERENCE.md`](../../docs/API_REFERENCE.md)
 2. Mirror in `README.md`'s Options table
-3. Run `npm run prettier:fix`
-4. Verify both tables render identically (Prettier may reflow)
+3. Run `corepack pnpm run biome:fix`
+4. Verify both tables render identically (Biome's formatter may reflow)
 
 ### Renaming a doc file
 
